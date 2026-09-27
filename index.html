@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SA Guide Map</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="SA Guide">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="lib/maplibre-gl.css">
+  <link rel="stylesheet" href="src/style.css">
+  <script src="lib/maplibre-gl.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+
+  <header id="top">
+    <div class="searchbar">
+      <input id="search" type="search" placeholder="Search places…" autocomplete="off">
+      <button id="btn-menu" class="icon" aria-label="Menu">☰</button>
+    </div>
+    <ul id="results" hidden></ul>
+    <div id="chips"></div>
+  </header>
+
+  <button id="btn-add" class="fab" aria-label="Add place">＋</button>
+
+  <section id="sheet" hidden>
+    <div class="handle"><span></span></div>
+    <div class="head"></div>
+    <div class="body"></div>
+  </section>
+
+  <dialog id="unlock">
+    <form method="dialog">
+      <h3>Unlock guide</h3>
+      <p class="muted">The guide text is encrypted. Enter the passphrase once; it is remembered on this device.</p>
+      <input id="passphrase" type="password" autocomplete="current-password" placeholder="Passphrase" required>
+      <p id="unlock-error" class="error" hidden>Wrong passphrase.</p>
+      <button type="submit" class="primary">Open</button>
+    </form>
+  </dialog>
+
+  <dialog id="add">
+    <form method="dialog">
+      <h3>My place</h3>
+      <label>Name <input name="name" placeholder="e.g. Great fish place"></label>
+      <label>Location <input name="loc" placeholder="lat, lng or Google Maps URL"></label>
+      <div class="row">
+        <button type="button" id="add-gps">📍 Where I am</button>
+        <button type="button" id="add-center">⌖ Map centre</button>
+      </div>
+      <label>Note <textarea name="note" rows="3"></textarea></label>
+      <p id="add-error" class="error" hidden></p>
+      <p class="muted small">Tip: long-press the map to drop a pin. From Google Maps: open the place, copy the full URL from the browser (short share links don’t contain coordinates).</p>
+      <div class="row">
+        <button type="button" id="add-delete" class="danger" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="menu">
+    <h3>Menu</h3>
+    <button data-act="offline">⬇ Save visible map area offline</button>
+    <p id="offline-progress" class="muted small"></p>
+    <button data-act="export">Export my places &amp; notes</button>
+    <button data-act="import">Import my places &amp; notes</button>
+    <input id="import-file" type="file" accept="application/json,.json" hidden>
+    <button data-act="lock">Forget passphrase</button>
+    <button data-act="close" class="primary">Close</button>
+  </dialog>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
