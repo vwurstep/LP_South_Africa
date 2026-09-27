@@ -47,25 +47,26 @@ button.danger { color: #c92a2a; }
 .meta { font-size: 13px; color: var(--muted); }
 .meta a { color: var(--accent); text-decoration: none; }
 .warn { color: #e67700; }
-.body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.slides { flex: 1; min-height: 0; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.slides::-webkit-scrollbar { display: none; }
-.slide { position: relative; flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; padding: 10px 16px 16px; font-size: 16px; line-height: 1.5; }
-.crumbs { font-size: 12px; color: var(--muted); display: flex; gap: 6px; margin-bottom: 4px; }
-.crumbs .count { margin-left: auto; font-weight: 600; }
-.text p { margin: 0 0 .8em; }
+.body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 16px; }
+.summary { margin: 10px 16px 4px; font-size: 16px; line-height: 1.5; }
+.mentions-head { margin: 14px 16px 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.mention { margin: 0 12px 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.crumbs { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.text { font-size: 15px; line-height: 1.5; }
+.text p, .text li { margin: 0 0 .6em; }
 .text h3, .text h4 { margin: 1em 0 .4em; }
 .text .poi b, .text a[data-ref] { color: var(--accent); }
 .text a[data-ref] { text-decoration: underline dotted; cursor: pointer; }
 .text a { color: var(--accent); }
 .text .price { color: #2b8a3e; font-weight: 700; }
 .text mark { background: #fff3bf; color: inherit; border-radius: 3px; }
-.hit-block { background: #fff9db; box-shadow: 0 0 0 6px #fff9db; border-radius: 4px; }
-.pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 2px; border-top: 1px solid var(--line); }
-.dots { display: flex; gap: 5px; }
-.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
-.dots i.on { background: var(--accent); }
-.note-box { padding: 6px 14px 8px; border-top: 1px solid var(--line); }
+.excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.excerpt p { display: inline; }
+.full-text { display: none; }
+.mention.expanded .excerpt { display: none; }
+.mention.expanded .full-text { display: block; }
+button.link { background: none; border: 0; padding: 2px 0; color: var(--accent); font-size: 14px; }
+.note-box { padding: 6px 14px 4px; }
 .note-box textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 15px; resize: vertical; }
 
 /* dialogs */
@@ -80,7 +81,7 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 
 @media (prefers-color-scheme: dark) {
   :root { --bg: #1e1f22; --fg: #e9ecef; --muted: #adb5bd; --line: #3a3d42; --soft: #2a2c30; }
-  .text mark { background: #5c4b00; } .hit-block { background: #3b3200; box-shadow: 0 0 0 6px #3b3200; }
+  .text mark { background: #5c4b00; }
   dialog { background: var(--bg); color: var(--fg); }
   dialog input, dialog textarea, .note-box textarea { background: var(--soft); }
 }

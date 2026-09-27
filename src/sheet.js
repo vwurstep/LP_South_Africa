@@ -1,5 +1,5 @@
-/* Bottom sheet: shows one place and the guide text of each mention, one slide per
-   mention (swipe horizontally between them). */
+/* Bottom sheet: one place. Summary on top, then every mention in the guide as a card
+   (the paragraph that mentions it; the full section can be expanded). */
 import { CATEGORIES, annotation, setAnnotation } from './data.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -17,9 +17,14 @@ export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange })
     if (act === 'expand') el.classList.toggle('full');
     if (act === 'fav') { setAnnotation(current.id, { fav: !annotation(current.id).fav }); renderHead(); onChange(); }
     if (act === 'edit') onEditUser(current);
-    if (act === 'prev' || act === 'next') {
-      const track = $('.slides');
-      track.scrollBy({ left: (act === 'next' ? 1 : -1) * track.clientWidth, behavior: 'smooth' });
+    if (act === 'more') {
+      const card = e.target.closest('.mention'), m = current.mentions[+card.dataset.i];
+      const full = card.querySelector('.full-text');
+      if (!full.innerHTML) { full.innerHTML = guide.sectionById[m.section].html; mark(full, current.name, m.anchor); }
+      card.classList.toggle('expanded');
+      const open = card.classList.contains('expanded');
+      e.target.textContent = open ? 'Hide full section ▴' : 'Read full section ▾';
+      (open ? full.querySelector('.hit, mark') : card)?.scrollIntoView({ block: open ? 'center' : 'start' });
     }
   });
   el.addEventListener('change', (e) => {
@@ -47,50 +52,44 @@ export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange })
         ${p.user ? ' · <a href="#" data-act="edit">Edit</a>' : ''}</div>`;
   }
 
-  function slideHtml(m, i, n) {
-    const s = guide.sectionById[m.section];
-    const crumbs = [s.chapter.startsWith('gen-') ? 'General' : null, s.area, s.parent !== s.title ? s.parent : null, s.title]
+  function crumbs(s) {
+    return [s.chapter.startsWith('gen-') ? 'General' : null, s.area, s.parent !== s.title ? s.parent : null, s.title]
       .filter((c, i, a) => c && a.indexOf(c) === i).map(esc).join(' › ');
-    return `<article class="slide" data-i="${i}">
-      <div class="crumbs">${crumbs}${s.page ? ` · p. ${s.page}` : ''}<span class="count">${i + 1}/${n}</span></div>
-      <div class="text">${s.html}</div></article>`;
   }
 
-  function highlight(slide, m, name) {
-    const box = slide.querySelector('.text');
-    let target = m.anchor && box.querySelector(`[id="${m.anchor}"]`);
-    // mark exact-name text occurrences
+  // highlight the place name (and its marked anchor) inside rendered guide text
+  function mark(box, name, anchor) {
     const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
     const hits = [];
     for (let n; (n = walker.nextNode());) { const i = n.nodeValue.indexOf(name); if (i >= 0) hits.push([n, i]); }
     for (const [node, i] of hits) {
       const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + name.length);
-      const mark = document.createElement('mark'); r.surroundContents(mark);
-      target ||= mark;
+      r.surroundContents(document.createElement('mark'));
     }
-    if (target) {
-      target.classList.add('hit');
-      const block = target.closest('p, li') || target;
-      block.classList.add('hit-block');
-      requestAnimationFrame(() => { if (block.offsetTop > slide.clientHeight / 2) slide.scrollTop = block.offsetTop - 40; });
-    }
+    if (anchor) box.querySelector(`[id="${anchor}"]`)?.classList.add('hit');
+  }
+
+  function mentionHtml(m, i) {
+    const s = guide.sectionById[m.section];
+    return `<article class="mention" data-i="${i}">
+      <div class="crumbs">${crumbs(s)}${s.page ? ` · p. ${s.page}` : ''}</div>
+      <div class="text excerpt">${m.excerpt || ''}</div>
+      <div class="text full-text"></div>
+      <button class="link" data-act="more">Read full section ▾</button></article>`;
   }
 
   function renderBody() {
     const p = current;
     const a = annotation(p.id);
-    const note = `<div class="note-box"><textarea class="note" rows="2" placeholder="My note…">${esc(a.note ?? p.note ?? '')}</textarea></div>`;
     const ms = p.mentions || [];
-    if (!ms.length) { $('.body').innerHTML = `<div class="slides"><article class="slide">${note}<p class="muted">${p.user ? 'Your own place.' : 'Only on the neighbourhood map in the guide — no text.'}</p></article></div>`; return; }
+    const summary = p.summary || (p.user ? '' : ms.length ? '' : 'Only shown on the neighbourhood map in the guide, without a description.');
     $('.body').innerHTML = `
-      <div class="slides">${ms.map((m, i) => slideHtml(m, i, ms.length)).join('')}</div>
-      ${ms.length > 1 ? `<div class="pager"><button data-act="prev" class="icon">‹</button><span class="dots">${ms.map((_, i) => `<i data-i="${i}"></i>`).join('')}</span><button data-act="next" class="icon">›</button></div>` : ''}
-      ${note}`;
-    const slides = [...el.querySelectorAll('.slide')];
-    slides.forEach((s, i) => highlight(s, ms[i], p.name));
-    const track = $('.slides'), dots = [...el.querySelectorAll('.dots i')];
-    const upd = () => { const i = Math.round(track.scrollLeft / track.clientWidth); dots.forEach((d, j) => d.classList.toggle('on', i === j)); };
-    track.addEventListener('scroll', upd, { passive: true }); upd();
+      ${summary ? `<p class="summary">${esc(summary)}</p>` : ''}
+      <div class="note-box"><textarea class="note" rows="2" placeholder="My note…">${esc(a.note ?? p.note ?? '')}</textarea></div>
+      ${ms.length ? `<h3 class="mentions-head">In the guide · ${ms.length} mention${ms.length > 1 ? 's' : ''}</h3>
+        ${ms.map(mentionHtml).join('')}` : ''}`;
+    el.querySelectorAll('.mention').forEach((card, i) => mark(card.querySelector('.excerpt'), p.name, ms[i].anchor));
+    $('.body').scrollTop = 0;
   }
 
   function open(place) {

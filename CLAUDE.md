@@ -2,8 +2,10 @@
 
 Personal travel app for Phil's South Africa trip. It shows the Lonely Planet
 recommendations (from the ebook Phil owns) as pins on a map with the user's live
-location. Tapping a pin opens the guide text for that place, and you can swipe between
-all the places in the book that mention it. Phil can also add his own pins (e.g. things
+location. Tapping a pin shows a short summary of what the book says about the place, then a
+list of every mention in the book: the paragraph itself, with the full section
+expandable. Phil found the first version, which showed whole sections one per swipe,
+confusing. Phil can also add his own pins (e.g. things
 found on Google Maps). It has to work **offline on a phone**.
 
 Scope right now: **Cape Town chapter only**, used to iterate on the look and feel.
@@ -53,6 +55,12 @@ Other chapters come later with the same pipeline.
 3. `tools/build_data.py` merges the batches, dedupes across batches, turns candidates
    into mentions, adds text-match mentions from the book's general chapters (Our Picks,
    Itineraries, Food…), and writes `data/private/guide.json`.
+   It also cuts the paragraph(s) of each mention (`excerpt`) and applies manual
+   duplicate merges from `data/private/<chapter>/merge.json`.
+   Places that still need a summary are written to `data/private/summaries/in-N.json`.
+   **Subagents** turn those into 1–3 sentence summaries (`out-N.json`, `{id: text}`),
+   using only the excerpts. Re-run the build afterwards to pick them up. Place ids are
+   `slug(name)-hash(name+lat)`, so they stay stable across rebuilds.
 4. `node tools/encrypt.mjs` writes `data/guide.enc.json` (passphrase from
    `data/private/passphrase.txt`).
 
@@ -65,8 +73,9 @@ marks a place, `p.wh-stay` a stay, `div.map-keys-poi` a map legend entry under
 ```
 { meta: {title, built, chapters:[...]},
   sections: [{id, chapter, area, title, parent, level, page, anchor, html}],
-  places:   [{id, name, category, subcategory, area, top, price, lat, lng,
-              geo:{source, confidence, note}, mentions:[{section, anchor|null}]}] }
+  places:   [{id, name, category, subcategory, area, top, price, lat, lng, summary,
+              geo:{source, confidence, note},
+              mentions:[{section, anchor|null, label?, excerpt}]}] }
 ```
 `category` is one of: sight, activity, eat, drink, sleep, shop, info, transport.
 User places use the same place shape with `user: true`, an optional `note`, and no

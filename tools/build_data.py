@@ -66,7 +66,7 @@ for ch in CHAPTERS:
                 if c["kind"] == "mapkey" or not c.get("section"):
                     continue
                 anchor = c["anchor"] if c["kind"] in ("poi", "stay") else None
-                mentions.append({"section": c["section"], "anchor": anchor})
+                mentions.append({"section": c["section"], "anchor": anchor, "label": c["name"]})
             area = next((cands[i]["area"] for i in p["candidates"] if cands[i]["area"]), None)
             places.append({
                 "name": p["name"].strip(), "category": p["category"], "subcategory": p.get("subcategory"),
@@ -114,6 +114,60 @@ for p in places:
             seen.add(m["section"]); ms.append(m)
     p["mentions"] = ms
     p["id"] = slug(p["name"]) + "-" + hashlib.sha1(f'{p["name"]}{p["lat"]}'.encode()).hexdigest()[:4]
+
+# excerpt per mention: just the paragraph(s) that mention the place
+from bs4 import BeautifulSoup
+def excerpt(sec, anchor, names):
+    soup = BeautifulSoup(sec["html"], "html.parser")
+    blocks = [el for el in soup.find_all(["p", "li"]) if not el.find_parent(["p", "li"])]
+    hits = [el for el in blocks if (anchor and el.find(id=anchor)) or any(n in el.get_text() for n in names)]
+    return "".join(str(el) for el in hits[:2])
+for p in places:
+    for m in p["mentions"]:
+        names = [n for n in {p["name"], m.get("label") or p["name"]} if n]
+        m["excerpt"] = excerpt(sections[sec_index[m["section"]]], m["anchor"], names)
+        if m.get("label") == p["name"]:
+            m.pop("label")
+    p["mentions"] = [m for m in p["mentions"] if m["excerpt"]]  # nothing to show -> drop
+
+# summaries written by subagents from the excerpts (data/private/summaries/out-*.json)
+SUM = PRIV / "summaries"
+summaries = {}
+for f in sorted(SUM.glob("out-*.json")):
+    summaries.update(json.loads(f.read_text()))
+for p in places:
+    p["summary"] = summaries.get(p["id"])
+missing = [p for p in places if not p["summary"] and p["mentions"]]
+if missing:  # write agent inputs for whatever still needs a summary
+    SUM.mkdir(exist_ok=True)
+    n = 4
+    for k in range(n):
+        chunk = missing[k::n]
+        (SUM / f"in-{k}.json").write_text(json.dumps([{
+            "id": p["id"], "name": p["name"], "category": p["category"], "subcategory": p["subcategory"],
+            "area": p["area"], "price": p["price"],
+            "excerpts": [plain(m["excerpt"]).strip() for m in p["mentions"] if m["excerpt"]],
+        } for p in chunk], ensure_ascii=False, indent=1))
+    print(f"{len(missing)} places need summaries -> {SUM}/in-*.json")
+
+# manual merges of duplicates the agents kept apart: data/private/<chapter>/merge.json
+# {"Canonical name": ["alias", ...]}; keeps the canonical pin, longest summary, all mentions
+for ch in CHAPTERS:
+    f = PRIV / ch / "merge.json"
+    for canon, aliases in (json.loads(f.read_text()) if f.exists() else {}).items():
+        group = [p for p in places if p["name"] in [canon, *aliases]]
+        keep = next((p for p in group if p["name"] == canon), None)
+        if not keep:
+            continue
+        for p in group:
+            if p is keep:
+                continue
+            have = {m["section"] for m in keep["mentions"]}
+            keep["mentions"] += [m for m in p["mentions"] if m["section"] not in have]
+            keep["top"] = keep["top"] or p["top"]
+            if len(p["summary"] or "") > len(keep["summary"] or ""):
+                keep["summary"] = p["summary"]
+            places.remove(p)
 
 # places sharing exact coordinates (usually approximate geocodes): fan them out ~20 m
 by_pos = {}

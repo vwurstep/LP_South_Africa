@@ -102,6 +102,19 @@ for el in root.descendants:
         state["page"] = int(el["id"].split("_")[1])
         continue
     cls = el.get("class", [])
+    # "Don't Miss" box on top-sight pages: one compact line instead of loose lines
+    if el.find_parent(class_=["dont-miss", "dont-missb"]):
+        continue
+    if el.name == "div" and "dont-miss" in cls:
+        items = [text(x) for x in el.find_all("p")]
+        if items:
+            cur["html"] += "<p><b>Don’t miss:</b> " + " · ".join(items) + "</p>"
+        continue
+    if el.name == "div" and "dont-missb" in cls:
+        continue
+    if el.name == "p" and "poi-head-2" in cls:
+        cur["html"] += f"<h4>{text(el)}</h4>"
+        continue
     # headings open new sections
     if el.name == "h2":
         t = text(el).replace("TOP SIGHT", "").strip()
