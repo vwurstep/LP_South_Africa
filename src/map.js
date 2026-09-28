@@ -6,8 +6,13 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const CAPE_TOWN = { center: [18.45, -33.95], zoom: 11 };
 
 export function createMap(el, { onPlaceClick, onLongPress }) {
+  let view = CAPE_TOWN;
+  try { view = JSON.parse(localStorage.getItem('lp.view')) || CAPE_TOWN; } catch {}
   const map = new maplibregl.Map({
-    container: el, style: STYLE_URL, ...CAPE_TOWN, attributionControl: { compact: true },
+    container: el, style: STYLE_URL, ...view, attributionControl: { compact: true },
+  });
+  map.on('moveend', () => {
+    try { localStorage.setItem('lp.view', JSON.stringify({ center: map.getCenter().toArray(), zoom: map.getZoom() })); } catch {}
   });
   map.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right');
   const geolocate = new maplibregl.GeolocateControl({

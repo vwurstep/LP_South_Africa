@@ -11,8 +11,23 @@ friends' recommendations (pasted messages, turned into pins/areas/routes by the
 outlines and routes (scenic drives) as lines, next to the dots. It has to work
 **offline on a phone**.
 
-Scope right now: **Cape Town chapter only**, used to iterate on the look and feel.
-Other chapters come later with the same pipeline.
+Scope: **the whole guide**. Cape Town was built first to settle the look. On 2026-09-28
+all 14 regional chapters (`tools/chapters.json`) went through the same pipeline: about
+1,745 places, including about 190 areas and 11 routes, with 130 outlines. About 470 places
+have only an approximate position (`geo.confidence: low`), mostly small businesses not in
+OSM that sit at the town centre.
+Build dedupe rules: the same name within 1.5 km is one place; within one chapter, within
+40 km (60 km if either position is a guess). An area or route item matches a same-named
+point within 150 km, so a park's gate dot gets the park outline.
+
+## TODO (open)
+
+- **Sync setup (Phil):** he hasn't created the GitHub token yet. He wants his
+  notes/stars kept between updates. They already survive updates (localStorage), but the
+  backup to the `userdata` branch needs the token pasted in ☰ → Backup & sync. Remind
+  him.
+- **Google ratings (optional):** Phil might not need them. Needs a Places API key in
+  `data/private/google_api_key.txt`, then `tools/google_places.py`.
 
 ## Decisions (and why)
 
@@ -66,15 +81,23 @@ Other chapters come later with the same pipeline.
   the "Enterprise" SKU, whose free allowance is about 1000 per month, so look up each
   place only once.
 
-## Data pipeline (per chapter)
+## Data pipeline
 
-1. `tools/extract_chapter.py <xhtml> <chapter-id> data/private/<chapter-id>` is
-   deterministic. It writes `sections.json` (cleaned HTML text blocks in book order,
+Chapters, with file, title, country and bbox, are listed in `tools/chapters.json`.
+Subagent briefs live in `tools/briefs/` (`geocode.md`, `areas.md`, `summaries.md`), so
+each agent prompt only says which files to process.
+
+1. `python3 tools/extract_all.py` runs `tools/extract_chapter.py` for every chapter.
+   It is deterministic. It writes `sections.json` (cleaned HTML text blocks in book order,
    split at headings) and `candidates.json` (every place mention: poi spans, stays, map
    legend entries with their category).
-2. **Subagents** (one per group of neighbourhoods, run in parallel, sonnet is enough)
-   dedupe, classify and geocode the candidates into `batches/<X>.places.json`. Geocoding
-   uses Photon first, then Nominatim at ≤1 req/s, then knowledge. Each place records
+   It refuses to overwrite a chapter whose candidate list would change, because the
+   batches refer to candidates by index.
+2. **Subagents** (one per chapter or half-chapter of ~100–280 candidates, run in parallel,
+   sonnet is enough, brief `tools/briefs/geocode.md`) dedupe, classify, set `locality` and
+   geocode the candidates into `batches/<X>.places.json`. Parallel agents use **Photon
+   only** (≤1 req/s each). Nominatim allows 1 req/s in total, so only the single-threaded
+   build uses it, for outlines. Each place records
    `geo.confidence`. Splitting the work this way keeps the main session from reading the
    whole book.
 3. `tools/build_data.py` merges the batches, dedupes across batches, turns candidates
@@ -82,11 +105,14 @@ Other chapters come later with the same pipeline.
    Itineraries, Food…), and writes `data/private/guide.json`.
    It also cuts the paragraph(s) of each mention (`excerpt`) and applies manual
    duplicate merges from `data/private/<chapter>/merge.json`.
-   Places that still need a summary are written to `data/private/summaries/in-N.json`.
-   **Subagents** turn those into 1–3 sentence summaries (`out-N.json`, `{id: text}`),
+   Places that still need a summary are written to
+   `data/private/summaries/todo-<stamp>-NN.json` (150 per file). **Subagents** (brief
+   `tools/briefs/summaries.md`) turn those into 1–3 sentence summaries
+   (`done-<stamp>-NN.json`, `{id: text}`; older ones are `out-*.json`),
    using only the excerpts. Re-run the build afterwards to pick them up. Place ids are
    `slug(name)-hash(name+lat)`, so they stay stable across rebuilds.
-   Areas/routes of the chapter: `data/private/<chapter>/areas.json` (made by an agent:
+   Areas/routes of the chapter: `data/private/<chapter>/areas.json` (made by an agent with
+   brief `tools/briefs/areas.md`:
    name as in the book, kind, OSM id or line, `lp_match` to put a shape on an existing point).
    Friends: `data/private/friends/*.json` (see `.claude/skills/add-recommendations`).
    Optional: `python3 tools/google_places.py`, then re-run the build.

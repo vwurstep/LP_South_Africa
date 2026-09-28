@@ -53,13 +53,14 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
         <button data-act="close" class="icon" aria-label="Close">✕</button>
       </div>
       <h2>${esc(p.name)}</h2>
-      <div class="meta">${[esc([p.subcategory, p.area].filter(Boolean).join(' · ')), `<a href="${gmaps}" target="_blank" rel="noopener">Google Maps ↗</a>`].filter(Boolean).join(' · ')}
-        ${p.geo?.confidence === 'low' ? ' · <span class="warn" title="Approximate location">≈ location</span>' : ''}
+      <div class="meta">${[esc([p.subcategory, [p.locality, p.area].find((x) => x && x !== p.name)].filter(Boolean).join(' · ')), `<a href="${gmaps}" target="_blank" rel="noopener">Google Maps ↗</a>`].filter(Boolean).join(' · ')}
+        ${p.geo?.confidence === 'low' && (p.kind || 'point') === 'point' ? ' · <span class="warn" title="Approximate location">≈ location</span>' : ''}
         ${p.user ? ' · <a href="#" data-act="edit">Edit</a>' : ''}</div>`;
   }
 
   function crumbs(s) {
-    return [s.chapter.startsWith('gen-') ? 'General' : null, s.area, s.parent !== s.title ? s.parent : null, s.title]
+    const chapter = s.chapter.startsWith('gen-') ? 'General' : guide.chapterById?.[s.chapter]?.title;
+    return [chapter, s.area, s.parent !== s.title ? s.parent : null, s.title]
       .filter((c, i, a) => c && a.indexOf(c) === i).map(esc).join(' › ');
   }
 

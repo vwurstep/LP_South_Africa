@@ -66,6 +66,8 @@ export async function loadGuide(passphrase = savedPassphrase(), url = 'data/guid
   try { guide = await decryptJSON(enc, passphrase); } catch { throw new Error('bad-passphrase'); }
   localStorage.setItem(PASS_KEY, passphrase);
   guide.sectionById = Object.fromEntries(guide.sections.map((s) => [s.id, s]));
+  guide.chapterById = Object.fromEntries((guide.meta.chapters || []).map((c) => [c.id, c]));
+  for (const p of guide.places) p.country = guide.chapterById[p.chapter]?.country;
   guide.placeById = Object.fromEntries(guide.places.map((p) => [p.id, p]));
   return guide;
 }
@@ -179,7 +181,7 @@ export function parseLocation(text) {
 /** Google Maps link for a place: its own Google page when known, else a name search. */
 export function googleMapsUrl(p) {
   if (p.google?.uri) return p.google.uri;
-  const q = p.user ? `${p.lat},${p.lng}` : `${p.name}, Cape Town`;
+  const q = p.user ? `${p.lat},${p.lng}` : [p.name, p.locality, p.country].filter(Boolean).join(', ');
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` +
     (p.google?.id ? `&query_place_id=${p.google.id}` : '');
 }

@@ -149,7 +149,7 @@ for el in root.descendants:
         if el.find_parent(class_=["map-keys", "minitoc"]):
             continue
         cur["html"] += clean_html(el)
-        if "wh-stay" in cls:
+        if "wh-stay" in cls and el.find("b"):  # a few are plain notes, not stays
             price = el.find(class_="price-range")
             add_candidate("stay", text(el.find("b")), el.get("id"), el,
                           price=text(price) if price else None)

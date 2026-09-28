@@ -107,7 +107,7 @@ function setupSearch() {
     const rank = (p) => { const n = norm(p.name); return n === q ? 0 : n.startsWith(q) ? 1 : n.includes(q) ? 2 : 3; };
     const hits = allPlaces().filter((p) => norm(p.name).includes(q) || norm(p.subcategory || '').includes(q))
       .sort((a, b) => rank(a) - rank(b) || a.name.length - b.name.length).slice(0, 30);
-    list.innerHTML = hits.map((p) => `<li data-id="${p.id}"><i style="background:${data.CATEGORIES[p.category].color}"></i>${p.name}<small>${p.area || p.subcategory || ''}</small></li>`).join('') || '<li class="muted">No match</li>';
+    list.innerHTML = hits.map((p) => `<li data-id="${p.id}"><i style="background:${data.CATEGORIES[p.category].color}"></i>${p.name}<small>${p.locality || p.area || p.subcategory || ''}</small></li>`).join('') || '<li class="muted">No match</li>';
     list.hidden = false;
   });
   list.onclick = (e) => {
@@ -159,10 +159,14 @@ function setupMenu() {
     if (!act) return;
     if (act === 'close') menu.close();
     if (act === 'offline') {
-      const b = mapView.bounds(), n = countTiles(b, 14);
-      if (!confirm(`Download ${n} map tiles (about ${Math.round(n * 0.04)} MB) for the visible area?`)) return;
+      // highest detail (max zoom 14) that keeps the download reasonable
+      const b = mapView.bounds();
+      let z = 14; while (z > 8 && countTiles(b, z) > 15000) z--;
+      const n = countTiles(b, z);
+      const note = z < 14 ? `\n(Detail limited to zoom ${z} — zoom in further to save streets in full detail.)` : '';
+      if (!confirm(`Download ${n} map tiles (about ${Math.round(n * 0.04)} MB) for the visible area?${note}`)) return;
       const out = $('#offline-progress');
-      const res = await downloadTiles(b, 14, (d, t) => (out.textContent = `${d} / ${t}`));
+      const res = await downloadTiles(b, z, (d, t) => (out.textContent = `${d} / ${t}`));
       out.textContent = res.failed ? `Done, ${res.failed} failed — try again.` : 'Done — this area works offline.';
     }
     if (act === 'export') {

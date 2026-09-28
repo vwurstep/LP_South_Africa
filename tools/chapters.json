@@ -1,0 +1,16 @@
+[
+ {"id": "capetown",       "file": "ebook-12b-cape-town-city-template-sls13.xhtml", "title": "Cape Town", "country": "South Africa", "bbox": [-34.45, 18.3, -33.6, 18.95]},
+ {"id": "aroundcapetown", "file": "ebook-13-around-cape-town-6pp-opener-sls13.xhtml", "title": "Around Cape Town", "country": "South Africa", "bbox": [-35.0, 17.8, -31.5, 21.2]},
+ {"id": "gardenroute",    "file": "ebook-14-garden-route-region-template-4pp-opener-FINAL-sls13.xhtml", "title": "Garden Route", "country": "South Africa", "bbox": [-34.4, 21.3, -33.3, 24.0]},
+ {"id": "easterncape",    "file": "ebook-15-eastern-cape-region-template-6pp-opener-sls1.xhtml", "title": "Eastern Cape", "country": "South Africa", "bbox": [-34.3, 22.5, -30.0, 30.3]},
+ {"id": "kzn",            "file": "ebook-16-kwazulu-natal-region-template-6pp-opener-sls13.xhtml", "title": "KwaZulu-Natal", "country": "South Africa", "bbox": [-31.2, 28.7, -26.7, 33.0]},
+ {"id": "freestate",      "file": "ebook-17-free-state-region-template-4pp-opener-sls13.xhtml", "title": "Free State", "country": "South Africa", "bbox": [-30.8, 24.2, -26.5, 29.9]},
+ {"id": "gauteng",        "file": "ebook-18-johannesburg-and-gauteng-region-template-6pp-opener-sls13.xhtml", "title": "Johannesburg & Gauteng", "country": "South Africa", "bbox": [-26.9, 27.2, -25.0, 29.0]},
+ {"id": "mpumalanga",     "file": "ebook-19-mpumalanga-region-template-4pp-opener-sls13.xhtml", "title": "Mpumalanga", "country": "South Africa", "bbox": [-27.5, 28.8, -24.0, 32.0]},
+ {"id": "kruger",         "file": "ebook-20-kruger-national-park-region-template-4pp-opener-sls13.xhtml", "title": "Kruger National Park", "country": "South Africa", "bbox": [-25.7, 30.7, -22.3, 32.1]},
+ {"id": "limpopo",        "file": "ebook-21-limpopo-region-template-4pp-opener-sls13.xhtml", "title": "Limpopo", "country": "South Africa", "bbox": [-25.5, 26.3, -22.1, 31.9]},
+ {"id": "northwest",      "file": "ebook-22-north-west-province-region-template-4pp-opener-sls13.xhtml", "title": "North West Province", "country": "South Africa", "bbox": [-28.0, 22.5, -24.6, 28.3]},
+ {"id": "northerncape",   "file": "ebook-23-northern-cape-region-multi-country-sls13.xhtml", "title": "Northern Cape", "country": "South Africa", "bbox": [-32.2, 16.4, -24.7, 25.5]},
+ {"id": "lesotho",        "file": "ebook-24-lesotho-region-multi-country-sls13.xhtml", "title": "Lesotho", "country": "Lesotho", "bbox": [-30.7, 27.0, -28.5, 29.5]},
+ {"id": "eswatini",       "file": "ebook-25-eswatini-region-multi-country-sls13.xhtml", "title": "eSwatini", "country": "Eswatini", "bbox": [-27.4, 30.7, -25.7, 32.2]}
+]

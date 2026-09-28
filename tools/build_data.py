@@ -2,8 +2,8 @@
 
 Usage: python3 tools/build_data.py
 Reads data/private/<chapter>/{sections,candidates}.json and batches/*.places.json
-for every chapter in CHAPTERS, plus sections of the general chapters (for extra
-text-match mentions). See CLAUDE.md for the schema.
+for every chapter in tools/chapters.json that has geocoded batches, plus sections of
+the general chapters (for extra text-match mentions). See CLAUDE.md for the schema.
 """
 import json, math, re, subprocess, sys, unicodedata, hashlib, datetime
 from pathlib import Path
@@ -11,7 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PRIV = ROOT / "data" / "private"
 EPUB = ROOT / "book" / "EPUB"
-CHAPTERS = ["capetown"]
+CHAPTER_META = {c["id"]: c for c in json.loads((ROOT / "tools/chapters.json").read_text())}
+# a chapter is included once at least one of its batches has been geocoded
+CHAPTERS = [c for c in CHAPTER_META if list((PRIV / c / "batches").glob("*.places.json"))]
 # general chapters searched for extra mentions of places by exact name
 GENERAL = ["02-welcome", "04-our-picks", "05-regions", "06-itineraries", "07-when-to-go",
            "08-get-prepared", "09-food-scene", "10-how-to", "11a-outdoors", "11b-action",
@@ -70,29 +72,45 @@ for ch in CHAPTERS:
             area = next((cands[i]["area"] for i in p["candidates"] if cands[i]["area"]), None)
             places.append({
                 "name": p["name"].strip(), "category": p["category"], "subcategory": p.get("subcategory"),
+                "chapter": ch, "locality": p.get("locality") or ("Cape Town" if ch == "capetown" else area),
                 "area": area, "top": bool(p.get("top")), "price": p.get("price"),
                 "lat": round(p["lat"], 6), "lng": round(p["lng"], 6), "geo": p.get("geo", {}),
                 "mentions": mentions,
             })
 
 # merge same-named places across batches when they are close together
-merged = []
+merged, by_name = [], {}
 for p in places:
-    twin = next((q for q in merged if norm(q["name"]) == norm(p["name"]) and dist_km(p, q) < 1.5), None)
+    key = norm(p["name"])
+    # same place: very close, or same chapter and < 20 km (split batches geocode differently)
+    def same(q):
+        d = dist_km(p, q)
+        if d < 1.5:
+            return True
+        guess = "low" in (p["geo"].get("confidence"), q["geo"].get("confidence"))
+        return q["chapter"] == p["chapter"] and d < (60 if guess else 40)
+    twin = next((q for q in by_name.get(key, []) if same(q)), None)
     if twin:
+        rank = {"high": 0, "medium": 1}
+        if rank.get(p["geo"].get("confidence"), 2) < rank.get(twin["geo"].get("confidence"), 2):
+            twin.update(lat=p["lat"], lng=p["lng"], geo=p["geo"])
         twin["mentions"] += p["mentions"]
         twin["top"] = twin["top"] or p["top"]
         twin["price"] = twin["price"] or p["price"]
     else:
         merged.append(p)
+        by_name.setdefault(key, []).append(p)
 places = merged
 
 for p in places:
     p.update(kind="point", source="lp", recs=[])
 
 
-def find_place(name):
-    return next((q for q in places if norm(q["name"]) == norm(name)), None)
+def find_place(name, near=None, radius=40):
+    same = [q for q in places if norm(q["name"]) == norm(name)]
+    if near and near.get("lat") is not None:
+        same = sorted((q for q in same if dist_km(q, near) < radius), key=lambda q: dist_km(q, near))
+    return same[0] if same else None
 
 
 def add_shape(p, item):
@@ -102,8 +120,14 @@ def add_shape(p, item):
         p["shape"] = {"type": "LineString", "coordinates": item["line"]}
 
 
-def new_place(item, source):
+def nearest_chapter(item):
+    q = min(places, key=lambda q: dist_km(q, item))
+    return q["chapter"]
+
+
+def new_place(item, source, chapter):
     p = {"name": item["name"], "category": item["category"], "subcategory": item.get("subcategory"),
+         "chapter": chapter, "locality": item.get("locality") or item["name"],
          "area": item.get("book_area"), "top": False, "price": None,
          "lat": round(item["lat"], 6), "lng": round(item["lng"], 6), "geo": item.get("geo", {}),
          "mentions": [], "kind": item.get("kind", "point"), "source": source, "recs": []}
@@ -116,33 +140,45 @@ def new_place(item, source):
 for ch in CHAPTERS:
     f = PRIV / ch / "areas.json"
     for item in (json.loads(f.read_text())["items"] if f.exists() else []):
-        target = find_place(item["lp_match"]) if item.get("lp_match") else None
+        # big parks/routes: the dot (a gate or camp) can be far from the area's centre
+        r = 150 if item.get("kind") != "point" else 40
+        target = find_place(item["lp_match"], item, r) if item.get("lp_match") else None
+        target = target or find_place(item["name"], item, r)
         if target:
-            add_shape(target, item)  # a mapped point that also gets an outline / line
-        elif not find_place(item["name"]):
-            new_place(item, "lp")
+            if not (target.get("shape") or target.get("osm")):
+                add_shape(target, item)  # a mapped point that also gets an outline / line
+        else:
+            new_place(item, "lp", ch)
 
 # friends' recommendations (agent-made): data/private/friends/*.json
 for f in sorted((PRIV / "friends").glob("*.json")):
     rec = json.loads(f.read_text())
     for item in rec["items"]:
         r = {"by": rec["by"], "date": rec.get("date"), "comment": item.get("comment", "")}
-        target = find_place(item.get("lp_match") or item["name"]) or find_place(item["name"])
+        target = find_place(item.get("lp_match") or item["name"], item) or find_place(item["name"], item)
         if not target:
-            target = new_place(item, "friend")
+            target = new_place(item, "friend", nearest_chapter(item))
         elif not target.get("shape") and not target.get("osm"):
             add_shape(target, item)
         target["recs"].append(r)
 
-# extra mentions: exact-name text matches in any section not already linked
+# extra mentions: exact-name text matches in sections not already linked. Venues only
+# within their own chapter + the general chapters (same names recur across the country);
+# areas, routes and parks anywhere in the book.
+plains = {s["id"]: plain(s["html"]) for s in sections}
 for p in places:
     name = p["name"]
     if len(name) < (5 if p["kind"] != "point" else 8) and " " not in name:
         continue  # too generic to text-match safely
+    anywhere = p["kind"] != "point" or p.get("shape") or p.get("osm")
     pat = re.compile(r"(?<![\w’'])" + re.escape(name) + r"(?![\w’'])")
     have = {m["section"] for m in p["mentions"]}
     for s in sections:
-        if s["id"] not in have and pat.search(plain(s["html"])):
+        if s["id"] in have or name not in plains[s["id"]]:
+            continue
+        if not (anywhere or s["chapter"] == p["chapter"] or s["chapter"].startswith("gen-")):
+            continue
+        if pat.search(plains[s["id"]]):
             p["mentions"].append({"section": s["id"], "anchor": None})
             have.add(s["id"])
 
@@ -180,22 +216,30 @@ for p in places:
 # summaries written by subagents from the excerpts (data/private/summaries/out-*.json)
 SUM = PRIV / "summaries"
 summaries = {}
-for f in sorted(SUM.glob("out-*.json")):
+for f in sorted(SUM.glob("out-*.json")) + sorted(SUM.glob("done-*.json")):
     summaries.update(json.loads(f.read_text()))
+# todo files without a matching done file are still being worked on by an agent: leave
+# them alone and don't hand out their places again
+pending = set()
+for f in SUM.glob("todo-*.json"):
+    if not (SUM / f.name.replace("todo-", "done-")).exists():
+        pending |= {x["id"] for x in json.loads(f.read_text())}
 for p in places:
     p["summary"] = summaries.get(p["id"])
-missing = [p for p in places if not p["summary"] and p["mentions"]]
+missing = [p for p in places if not p["summary"] and p["mentions"] and p["id"] not in pending]
 if missing:  # write agent inputs for whatever still needs a summary
     SUM.mkdir(exist_ok=True)
-    n = 4
-    for k in range(n):
-        chunk = missing[k::n]
-        (SUM / f"in-{k}.json").write_text(json.dumps([{
+    stamp = datetime.datetime.now().strftime("%m%d%H%M")
+    for k in range(0, len(missing), 150):
+        chunk = missing[k:k + 150]
+        (SUM / f"todo-{stamp}-{k // 150:02d}.json").write_text(json.dumps([{
             "id": p["id"], "name": p["name"], "category": p["category"], "subcategory": p["subcategory"],
-            "area": p["area"], "price": p["price"],
+            "area": p["area"], "region": CHAPTER_META[p["chapter"]]["title"], "price": p["price"],
             "excerpts": [plain(m["excerpt"]).strip() for m in p["mentions"] if m["excerpt"]],
         } for p in chunk], ensure_ascii=False, indent=1))
-    print(f"{len(missing)} places need summaries -> {SUM}/in-*.json")
+    print(f"{len(missing)} places need summaries -> {SUM}/todo-{stamp}-*.json")
+if pending:
+    print(f"{len(pending)} places have summaries in progress")
 
 # manual merges of duplicates the agents kept apart: data/private/<chapter>/merge.json
 # {"Canonical name": ["alias", ...]}; keeps the canonical pin, longest summary, all mentions
@@ -253,7 +297,7 @@ sections = [s for s in sections if not s["chapter"].startswith("gen-") or s["id"
 
 guide = {
     "meta": {"title": "Lonely Planet South Africa, Lesotho & eSwatini", "built": datetime.date.today().isoformat(),
-             "chapters": CHAPTERS},
+             "chapters": [{"id": c, "title": CHAPTER_META[c]["title"], "country": CHAPTER_META[c]["country"]} for c in CHAPTERS]},
     "sections": sections,
     "places": places,
 }
