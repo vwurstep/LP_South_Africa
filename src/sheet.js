@@ -1,16 +1,18 @@
 /* Bottom sheet: one place. Summary on top, then every mention in the guide as a card
    (the paragraph that mentions it; the full section can be expanded). */
-import { CATEGORIES, annotation, setAnnotation } from './data.js';
+import { CATEGORIES, annotation, setAnnotation, googleMapsUrl } from './data.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange }) {
+export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose, onChange }) {
   const $ = (sel) => el.querySelector(sel);
-  let current = null;
+  let current = null, others = [];
 
   el.addEventListener('click', (e) => {
     const ref = e.target.closest('a[data-ref]');
     if (ref) { e.preventDefault(); onRef(ref.dataset.ref); return; }
+    const other = e.target.closest('[data-place]');
+    if (other) { onOpenPlace(other.dataset.place); return; }
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || !current) return;
     if (act === 'close') close();
@@ -35,12 +37,16 @@ export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange })
   function renderHead() {
     const p = current, cat = CATEGORIES[p.category] || {};
     const fav = annotation(p.id).fav;
-    const gmaps = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
+    const gmaps = googleMapsUrl(p);
+    const g = p.google;
+    const rating = g?.rating ? `<span class="rating" title="Google rating">★ ${g.rating.toFixed(1)}<small> (${(g.count || 0).toLocaleString()})</small></span>` : '';
     $('.head').innerHTML = `
       <div class="title-row">
         <span class="badge" style="background:${cat.color}">${esc(cat.label)}</span>
         ${p.top ? '<span class="badge top">Top sight</span>' : ''}
         ${p.price ? `<span class="price">${esc(p.price)}</span>` : ''}
+        ${p.recs?.length ? '<span class="badge friend">Friend tip</span>' : ''}
+        ${rating}
         <span class="spacer"></span>
         <button data-act="fav" class="icon ${fav ? 'on' : ''}" aria-label="Favourite">${fav ? '★' : '☆'}</button>
         <button data-act="expand" class="icon" aria-label="Expand">⤢</button>
@@ -83,8 +89,13 @@ export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange })
     const a = annotation(p.id);
     const ms = p.mentions || [];
     const summary = p.summary || (p.user ? '' : ms.length ? '' : 'Only shown on the neighbourhood map in the guide, without a description.');
+    const recs = (p.recs || []).map((r) => `<blockquote class="rec"><p>“${esc(r.comment)}”</p>
+      <footer>— ${esc(r.by)}${r.date ? `, ${esc(r.date)}` : ''}</footer></blockquote>`).join('');
+    const also = others.map((id) => guide.placeById[id]).filter(Boolean);
     $('.body').innerHTML = `
+      ${recs}
       ${summary ? `<p class="summary">${esc(summary)}</p>` : ''}
+      ${also.length ? `<p class="also">Also here: ${also.map((q) => `<a data-place="${q.id}">${esc(q.name)}</a>`).join(', ')}</p>` : ''}
       <div class="note-box"><textarea class="note" rows="2" placeholder="My note…">${esc(a.note ?? p.note ?? '')}</textarea></div>
       ${ms.length ? `<h3 class="mentions-head">In the guide · ${ms.length} mention${ms.length > 1 ? 's' : ''}</h3>
         ${ms.map(mentionHtml).join('')}` : ''}`;
@@ -92,8 +103,8 @@ export function createSheet(el, { guide, onRef, onEditUser, onClose, onChange })
     $('.body').scrollTop = 0;
   }
 
-  function open(place) {
-    current = place;
+  function open(place, alsoHere = []) {
+    current = place; others = alsoHere;
     renderHead(); renderBody();
     el.hidden = false;
     requestAnimationFrame(() => el.classList.add('open'));

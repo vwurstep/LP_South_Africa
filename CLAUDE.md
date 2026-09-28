@@ -5,8 +5,11 @@ recommendations (from the ebook Phil owns) as pins on a map with the user's live
 location. Tapping a pin shows a short summary of what the book says about the place, then a
 list of every mention in the book: the paragraph itself, with the full section
 expandable. Phil found the first version, which showed whole sections one per swipe,
-confusing. Phil can also add his own pins (e.g. things
-found on Google Maps). It has to work **offline on a phone**.
+confusing. Phil can also add his own pins (e.g. things found on Google Maps) and
+friends' recommendations (pasted messages, turned into pins/areas/routes by the
+`/add-recommendations` skill). Areas (neighbourhoods, towns, reserves) show as
+outlines and routes (scenic drives) as lines, next to the dots. It has to work
+**offline on a phone**.
 
 Scope right now: **Cape Town chapter only**, used to iterate on the look and feel.
 Other chapters come later with the same pipeline.
@@ -34,12 +37,34 @@ Other chapters come later with the same pipeline.
   worker caches tiles, fonts and sprites cache-first. A "Save map offline" action
   pre-downloads the tiles for the visible area up to zoom 14, and the vector tiles
   overzoom fine past that.
-- **User data lives on the device** (localStorage via `src/data.js`), with export/import
-  as JSON so it can be backed up or moved to another device. There is no server.
+- **User data (stars, notes, own pins) lives on the device** (localStorage via
+  `src/data.js`). App updates don't touch it. Optional **GitHub sync** (Phil chose it)
+  stores it encrypted with the same passphrase in `user.enc.json` on the **`userdata`
+  branch**, not `main`, so syncs don't trigger Pages rebuilds. Phil pastes a
+  fine-grained token, limited to Contents read/write on this repo, into the menu. The
+  merge keeps the newest change per item: `updated` timestamps plus tombstones for
+  deletions. Read Phil's data with `node tools/decrypt.mjs --userdata`. Export/import
+  as JSON still exists.
   Adding a pin: long-press the map, use "here" (GPS), or paste coordinates or a Google
   Maps URL containing `@lat,lng`, `?q=lat,lng` or `!3d..!4d..`. Short `maps.app.goo.gl`
   links can't be resolved offline or client-side (CORS), so open them first and copy
   the full URL.
+
+- **Areas and routes**: a place has `kind` point|area|route and an optional `shape`
+  (GeoJSON). Points can have a shape too, e.g. Kirstenbosch has an outline plus a
+  dot. Outlines come from OSM via Nominatim lookup (`tools/geometry.py`, cached), and
+  route lines from OSRM (made by the agents). Click priority on the map: dot > route >
+  smallest area under the finger. Other overlapping areas are listed as "Also here".
+- **Friends' recommendations** go in `recs: [{by, date, comment}]` on a place. A rec that
+  matches an existing guide place is attached to it instead of making a duplicate pin.
+  Friends' messages stay in `data/private/friends/` and are published only inside the
+  encrypted guide file.
+- **Google**: each place gets a Google Maps link (its Google page when known, otherwise
+  a name search). `tools/google_places.py` (key in `data/private/google_api_key.txt`)
+  caches Places API matches in `data/private/google.json`. That gives rating, count,
+  link, and exact coordinates for places with low geocode confidence. Rating calls are
+  the "Enterprise" SKU, whose free allowance is about 1000 per month, so look up each
+  place only once.
 
 ## Data pipeline (per chapter)
 
@@ -61,6 +86,10 @@ Other chapters come later with the same pipeline.
    **Subagents** turn those into 1–3 sentence summaries (`out-N.json`, `{id: text}`),
    using only the excerpts. Re-run the build afterwards to pick them up. Place ids are
    `slug(name)-hash(name+lat)`, so they stay stable across rebuilds.
+   Areas/routes of the chapter: `data/private/<chapter>/areas.json` (made by an agent:
+   name as in the book, kind, OSM id or line, `lp_match` to put a shape on an existing point).
+   Friends: `data/private/friends/*.json` (see `.claude/skills/add-recommendations`).
+   Optional: `python3 tools/google_places.py`, then re-run the build.
 4. `node tools/encrypt.mjs` writes `data/guide.enc.json` (passphrase from
    `data/private/passphrase.txt`).
 
@@ -74,10 +103,12 @@ marks a place, `p.wh-stay` a stay, `div.map-keys-poi` a map legend entry under
 { meta: {title, built, chapters:[...]},
   sections: [{id, chapter, area, title, parent, level, page, anchor, html}],
   places:   [{id, name, category, subcategory, area, top, price, lat, lng, summary,
+              kind: point|area|route, shape?: GeoJSON, source: lp|friend,
+              recs: [{by, date, comment}], google?: {id, rating, count, uri},
               geo:{source, confidence, note},
-              mentions:[{section, anchor|null, label?, excerpt}]}] }
+              mentions:[{section, anchor|null, label?, excerpt}]}] }   // max 12 mentions
 ```
-`category` is one of: sight, activity, eat, drink, sleep, shop, info, transport.
+`category` is one of: sight, activity, eat, drink, sleep, shop, area, info, transport.
 User places use the same place shape with `user: true`, an optional `note`, and no
 mentions.
 
@@ -87,6 +118,7 @@ mentions.
 - Use subagents for bulk book reading and geocoding. Don't read whole chapters in the
   main session.
 - Bump `CACHE` in `sw.js` whenever app files change.
-- Visual checks: headless Chrome screenshots from Bash (see `tools/` or memory).
+- Visual checks: Playwright WebKit with the iPhone 13 device profile, script in
+  `$TMPDIR/pw` (see memory). Headless Chrome CLI screenshots come out with an empty map.
 - Local run: `python3 -m http.server 8000` in the repo root, then open
   http://localhost:8000.

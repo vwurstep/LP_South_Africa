@@ -6,8 +6,9 @@ import { createSheet } from './sheet.js';
 const $ = (s) => document.querySelector(s);
 const FILTER_KEY = 'lp.filters';
 let guide, mapView, sheet;
-let active = new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || 'null') || ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'mine']);
-let favOnly = false;
+let active = new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || 'null') || ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'area', 'mine']);
+let favOnly = false, tipsOnly = false;
+let showShapes = localStorage.getItem('lp.shapes') !== 'off';
 
 // ---- unlock ------------------------------------------------------------------
 async function start() {
@@ -32,34 +33,37 @@ function placeById(id) { return guide.placeById[id] || data.userPlaces().find((p
 
 function boot() {
   mapView = createMap($('#map'), {
-    onPlaceClick: (id) => openPlace(id, false),
+    onPlaceClick: (id, others) => openPlace(id, false, others),
     onLongPress: (ll) => openAdd({ lat: ll.lat, lng: ll.lng }),
   });
   sheet = createSheet($('#sheet'), {
     guide,
     onRef: openRef,
+    onOpenPlace: (id) => openPlace(id),
     onEditUser: (p) => openAdd(p),
     onClose: () => mapView.select(null),
     onChange: refresh,
   });
+  mapView.showShapes(showShapes);
   buildChips();
   refresh();
   setupSearch();
   setupMenu();
+  setupSync();
 }
 
 function visible() {
-  return allPlaces().filter((p) => active.has(p.category) && (!favOnly || data.annotation(p.id).fav));
+  return allPlaces().filter((p) => active.has(p.category) && (!favOnly || data.annotation(p.id).fav) && (!tipsOnly || p.recs?.length));
 }
 function refresh() {
   const favs = new Set(allPlaces().filter((p) => data.annotation(p.id).fav).map((p) => p.id));
   mapView.setPlaces(visible(), favs);
 }
 
-function openPlace(id, fly = true) {
+function openPlace(id, fly = true, others = []) {
   const p = placeById(id);
   if (!p) return;
-  sheet.open(p);
+  sheet.open(p, others);
   mapView.select(p.id);
   if (fly) mapView.flyTo(p, sheet.height() / 2);
 }
@@ -75,16 +79,18 @@ function openRef(ref) {
 // ---- filter chips -------------------------------------------------------------
 function buildChips() {
   const box = $('#chips');
-  const cats = ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'info', 'transport', 'mine'];
+  const cats = ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'area', 'info', 'transport', 'mine'];
   box.innerHTML = cats.map((c) => {
     const n = allPlaces().filter((p) => p.category === c).length;
     if (!n && c !== 'mine') return '';
     const k = data.CATEGORIES[c];
     return `<button class="chip ${active.has(c) ? 'on' : ''}" data-cat="${c}" style="--c:${k.color}">${k.label}<small>${n}</small></button>`;
-  }).join('') + `<button class="chip fav ${favOnly ? 'on' : ''}" data-fav="1" style="--c:#fab005">★ only</button>`;
+  }).join('') + `<button class="chip fav ${favOnly ? 'on' : ''}" data-fav="1" style="--c:#fab005">★ only</button>`
+    + (allPlaces().some((p) => p.recs?.length) ? `<button class="chip ${tipsOnly ? 'on' : ''}" data-tips="1" style="--c:#212529">Friend tips</button>` : '');
   box.onclick = (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
     if (b.dataset.fav) favOnly = !favOnly;
+    else if (b.dataset.tips) tipsOnly = !tipsOnly;
     else active.has(b.dataset.cat) ? active.delete(b.dataset.cat) : active.add(b.dataset.cat);
     localStorage.setItem(FILTER_KEY, JSON.stringify([...active]));
     buildChips(); refresh();
@@ -98,7 +104,9 @@ function setupSearch() {
   input.addEventListener('input', () => {
     const q = norm(input.value.trim());
     if (q.length < 2) { list.hidden = true; return; }
-    const hits = allPlaces().filter((p) => norm(p.name).includes(q) || norm(p.subcategory || '').includes(q)).slice(0, 30);
+    const rank = (p) => { const n = norm(p.name); return n === q ? 0 : n.startsWith(q) ? 1 : n.includes(q) ? 2 : 3; };
+    const hits = allPlaces().filter((p) => norm(p.name).includes(q) || norm(p.subcategory || '').includes(q))
+      .sort((a, b) => rank(a) - rank(b) || a.name.length - b.name.length).slice(0, 30);
     list.innerHTML = hits.map((p) => `<li data-id="${p.id}"><i style="background:${data.CATEGORIES[p.category].color}"></i>${p.name}<small>${p.area || p.subcategory || ''}</small></li>`).join('') || '<li class="muted">No match</li>';
     list.hidden = false;
   });
@@ -143,6 +151,7 @@ function openAdd(p = {}) {
 // ---- menu: add, offline, backup, lock -----------------------------------------
 function setupMenu() {
   $('#btn-add').onclick = () => openAdd();
+  $('[data-act=shapes]').textContent = showShapes ? 'Hide areas & routes' : 'Show areas & routes';
   const menu = $('#menu');
   $('#btn-menu').onclick = () => menu.showModal();
   menu.addEventListener('click', async (e) => {
@@ -162,6 +171,12 @@ function setupMenu() {
       a.click();
     }
     if (act === 'import') $('#import-file').click();
+    if (act === 'shapes') {
+      showShapes = !showShapes;
+      localStorage.setItem('lp.shapes', showShapes ? 'on' : 'off');
+      mapView.showShapes(showShapes);
+      e.target.textContent = showShapes ? 'Hide areas & routes' : 'Show areas & routes';
+    }
     if (act === 'lock' && confirm('Forget the passphrase on this device?')) { data.forgetPassphrase(); location.reload(); }
   });
   $('#import-file').onchange = async (e) => {
@@ -169,6 +184,35 @@ function setupMenu() {
     data.importUserData(JSON.parse(await file.text()));
     buildChips(); refresh(); menu.close();
   };
+}
+
+// ---- sync of stars/notes/own places to GitHub (optional) ----------------------------
+function setupSync() {
+  const status = $('#sync-status'), input = $('#sync-token');
+  const show = (msg) => {
+    const s = data.syncSettings();
+    status.textContent = msg || (s ? (s.last ? `Synced ${new Date(s.last).toLocaleString()}` : 'Sync on') : 'Sync off — your data stays on this phone only.');
+    $('#sync-off').hidden = !s;
+  };
+  let timer = null, running = false;
+  async function run() {
+    if (running || !data.syncSettings() || !navigator.onLine) return;
+    running = true; show('Syncing…');
+    try { await data.sync(); show(); buildChips(); refresh(); }
+    catch (e) { show(`Sync failed (${e.message}) — will retry.`); }
+    running = false;
+  }
+  data.onUserDataChange(() => { clearTimeout(timer); timer = setTimeout(run, 2500); });
+  addEventListener('online', run);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && run());
+  $('#sync-save').onclick = () => {
+    const token = input.value.trim(); if (!token) return;
+    data.setSyncSettings({ token, repo: 'vwurstep/LP_South_Africa', branch: 'userdata', path: 'user.enc.json' });
+    input.value = ''; run();
+  };
+  $('#sync-off').onclick = () => { if (confirm('Turn off sync on this device?')) { data.setSyncSettings(null); show(); } };
+  show(); run();
+  navigator.storage?.persist?.();
 }
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');

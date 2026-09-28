@@ -87,10 +87,57 @@ for p in places:
         merged.append(p)
 places = merged
 
+for p in places:
+    p.update(kind="point", source="lp", recs=[])
+
+
+def find_place(name):
+    return next((q for q in places if norm(q["name"]) == norm(name)), None)
+
+
+def add_shape(p, item):
+    if item.get("osm"):
+        p["osm"] = item["osm"]
+    if item.get("line"):
+        p["shape"] = {"type": "LineString", "coordinates": item["line"]}
+
+
+def new_place(item, source):
+    p = {"name": item["name"], "category": item["category"], "subcategory": item.get("subcategory"),
+         "area": item.get("book_area"), "top": False, "price": None,
+         "lat": round(item["lat"], 6), "lng": round(item["lng"], 6), "geo": item.get("geo", {}),
+         "mentions": [], "kind": item.get("kind", "point"), "source": source, "recs": []}
+    add_shape(p, item)
+    places.append(p)
+    return p
+
+
+# areas & routes of the chapter (agent-made): data/private/<chapter>/areas.json
+for ch in CHAPTERS:
+    f = PRIV / ch / "areas.json"
+    for item in (json.loads(f.read_text())["items"] if f.exists() else []):
+        target = find_place(item["lp_match"]) if item.get("lp_match") else None
+        if target:
+            add_shape(target, item)  # a mapped point that also gets an outline / line
+        elif not find_place(item["name"]):
+            new_place(item, "lp")
+
+# friends' recommendations (agent-made): data/private/friends/*.json
+for f in sorted((PRIV / "friends").glob("*.json")):
+    rec = json.loads(f.read_text())
+    for item in rec["items"]:
+        r = {"by": rec["by"], "date": rec.get("date"), "comment": item.get("comment", "")}
+        target = find_place(item.get("lp_match") or item["name"]) or find_place(item["name"])
+        if not target:
+            target = new_place(item, "friend")
+        elif not target.get("shape") and not target.get("osm"):
+            add_shape(target, item)
+        target["recs"].append(r)
+
 # extra mentions: exact-name text matches in any section not already linked
 for p in places:
     name = p["name"]
-    if len(name) < 8 and " " not in name:
+    if len(name) < (5 if p["kind"] != "point" else 8) and " " not in name:
         continue  # too generic to text-match safely
     pat = re.compile(r"(?<![\w’'])" + re.escape(name) + r"(?![\w’'])")
     have = {m["section"] for m in p["mentions"]}
@@ -112,7 +159,7 @@ for p in places:
     for m in sorted(p["mentions"], key=rank):
         if m["section"] not in seen:
             seen.add(m["section"]); ms.append(m)
-    p["mentions"] = ms
+    p["mentions"] = ms[:12]  # long lists (e.g. Table Mountain: 30) are more noise than help
     p["id"] = slug(p["name"]) + "-" + hashlib.sha1(f'{p["name"]}{p["lat"]}'.encode()).hexdigest()[:4]
 
 # excerpt per mention: just the paragraph(s) that mention the place
@@ -179,6 +226,27 @@ for group in by_pos.values():
         p["lat"] = round(p["lat"] + 0.00018 * math.sin(a), 6)
         p["lng"] = round(p["lng"] + 0.00022 * math.cos(a), 6)
 
+# outlines from OpenStreetMap (cached) for places with an osm id
+sys.path.insert(0, str(ROOT / "tools"))
+from geometry import fetch_shapes
+shapes = fetch_shapes([p["osm"] for p in places if p.get("osm")])
+for p in places:
+    osm = p.pop("osm", None)
+    if osm and shapes.get(osm) and not p.get("shape"):
+        p["shape"] = shapes[osm]
+
+# Google Places data (cached by tools/google_places.py): rating, link, better location
+gfile = PRIV / "google.json"
+google = json.loads(gfile.read_text()) if gfile.exists() else {}
+for p in places:
+    g = google.get(p["id"])
+    if not g or not g.get("match"):
+        continue
+    p["google"] = {k: g.get(k) for k in ("id", "rating", "count", "uri")}
+    if p["kind"] == "point" and p["geo"].get("confidence") != "high" and g.get("lat"):
+        p["lat"], p["lng"] = round(g["lat"], 6), round(g["lng"], 6)
+        p["geo"] = {"source": "google", "confidence": "high"}
+
 # drop sections nothing points to, except the chapter's own ones (readable as a guide)
 used = {m["section"] for p in places for m in p["mentions"]}
 sections = [s for s in sections if not s["chapter"].startswith("gen-") or s["id"] in used]
@@ -195,3 +263,5 @@ print(len(places), "places,", len(sections), "sections,", sum(len(p["mentions"])
 print(Counter(p["category"] for p in places))
 print("no mentions:", sum(not p["mentions"] for p in places), " multi-mention:", sum(len(p["mentions"]) > 1 for p in places))
 print("low-confidence geo:", sum(p["geo"].get("confidence") == "low" for p in places))
+print("kinds:", Counter(p["kind"] for p in places), " shapes:", sum(bool(p.get("shape")) for p in places),
+      " with recs:", sum(bool(p["recs"]) for p in places), " google:", sum(bool(p.get("google")) for p in places))

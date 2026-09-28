@@ -14,35 +14,61 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
     positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, showAccuracyCircle: true,
   });
   map.addControl(geolocate, 'top-right');
+  const empty = { type: 'FeatureCollection', features: [] };
+  const isPoly = ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false];
 
   const ready = new Promise((res) => map.on('load', res));
   ready.then(() => {
-    map.addSource('places', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addSource('shapes', { type: 'geojson', data: empty });
+    map.addSource('places', { type: 'geojson', data: empty });
+    // areas: faint fill + dashed outline; routes: solid line
+    map.addLayer({ id: 'shape-fill', type: 'fill', source: 'shapes', filter: isPoly,
+      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['get', 'sel'], 0.22, 0.06] } });
+    map.addLayer({ id: 'shape-outline', type: 'line', source: 'shapes', filter: isPoly,
+      paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 3, 1.5], 'line-dasharray': [3, 2], 'line-opacity': 0.8 } });
+    map.addLayer({ id: 'route-line', type: 'line', source: 'shapes', filter: ['!', isPoly],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 7, 4.5], 'line-opacity': 0.75 } });
+    map.addLayer({ id: 'area-label', type: 'symbol', source: 'places', minzoom: 10.5,
+      filter: ['!=', ['get', 'kind'], 'point'],
+      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 13, 'text-max-width': 8 },
+      paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#fff', 'text-halo-width': 1.8 } });
+    map.addLayer({ id: 'selected', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
+      paint: { 'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#212529', 'circle-stroke-width': 3 } });
     map.addLayer({
-      id: 'places-dot', type: 'circle', source: 'places',
+      id: 'places-dot', type: 'circle', source: 'places', filter: ['==', ['get', 'kind'], 'point'],
       paint: {
         'circle-color': ['get', 'color'],
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, ['case', ['get', 'top'], 6, 4], 15, ['case', ['get', 'top'], 11, 8]],
-        'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', '#ffffff'],
-        'circle-stroke-width': ['case', ['get', 'fav'], 3, 1.5],
+        'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', ['get', 'rec'], '#212529', '#ffffff'],
+        'circle-stroke-width': ['case', ['get', 'fav'], 3, ['get', 'rec'], 2.5, 1.5],
       },
     });
     map.addLayer({
-      id: 'places-label', type: 'symbol', source: 'places', minzoom: 14,
+      id: 'places-label', type: 'symbol', source: 'places', minzoom: 14, filter: ['==', ['get', 'kind'], 'point'],
       layout: {
         'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
         'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true,
       },
       paint: { 'text-color': '#212529', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
     });
-    map.addLayer({
-      id: 'selected', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
-      paint: { 'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#212529', 'circle-stroke-width': 3 },
-    }, 'places-dot');
-    map.on('click', 'places-dot', (e) => onPlaceClick(e.features[0].properties.id));
-    map.on('mouseenter', 'places-dot', () => (map.getCanvas().style.cursor = 'pointer'));
-    map.on('mouseleave', 'places-dot', () => (map.getCanvas().style.cursor = ''));
+    map.on('click', onClick);
   });
+
+  // dots win over routes, routes over areas; overlapping areas -> smallest first
+  const box = (p, r) => [[p.x - r, p.y - r], [p.x + r, p.y + r]];
+  function onClick(e) {
+    const dot = map.queryRenderedFeatures(box(e.point, 10), { layers: ['places-dot', 'area-label'] })[0];
+    if (dot) return onPlaceClick(dot.properties.id, []);
+    const route = map.queryRenderedFeatures(box(e.point, 8), { layers: ['route-line'] })[0];
+    if (route) return onPlaceClick(route.properties.id, []);
+    const areas = map.queryRenderedFeatures(e.point, { layers: ['shape-fill'] })
+      .sort((a, b) => a.properties.size - b.properties.size);
+    const ids = [...new Set(areas.map((f) => f.properties.id))];
+    if (ids.length) onPlaceClick(ids[0], ids.slice(1));
+  }
+  map.on('mouseenter', 'places-dot', () => (map.getCanvas().style.cursor = 'pointer'));
+  map.on('mouseleave', 'places-dot', () => (map.getCanvas().style.cursor = ''));
 
   // long-press (touch) and right-click (desktop) to add a place
   map.on('contextmenu', (e) => onLongPress(e.lngLat));
@@ -58,20 +84,51 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
   map.on('touchmove', (e) => { if (start && Math.hypot(e.point.x - start.x, e.point.y - start.y) > 8) cancel(); });
   map.on('movestart', cancel);
 
+  let selectedId = null, lastPlaces = [], lastFavs = new Set();
+  function bboxSize(g) {
+    const flat = g.coordinates.flat(3);
+    let x0 = 180, x1 = -180, y0 = 90, y1 = -90;
+    for (let i = 0; i < flat.length; i += 2) { x0 = Math.min(x0, flat[i]); x1 = Math.max(x1, flat[i]); y0 = Math.min(y0, flat[i + 1]); y1 = Math.max(y1, flat[i + 1]); }
+    return (x1 - x0) * (y1 - y0);
+  }
+  function render() {
+    const color = (p) => CATEGORIES[p.category]?.color || '#000';
+    map.getSource('places').setData({
+      type: 'FeatureCollection',
+      features: lastPlaces.map((p) => ({
+        type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { id: p.id, name: p.name, kind: p.kind || 'point', top: !!p.top, fav: lastFavs.has(p.id),
+          rec: !!(p.recs?.length), color: color(p) },
+      })),
+    });
+    map.getSource('shapes').setData({
+      type: 'FeatureCollection',
+      features: lastPlaces.filter((p) => p.shape).map((p) => ({
+        type: 'Feature', geometry: p.shape,
+        properties: { id: p.id, color: color(p), sel: p.id === selectedId, size: bboxSize(p.shape) },
+      })),
+    });
+  }
+
   return {
     map,
     ready,
-    setPlaces(places, favs) {
-      ready.then(() => map.getSource('places').setData({
-        type: 'FeatureCollection',
-        features: places.map((p) => ({
-          type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-          properties: { id: p.id, name: p.name, top: !!p.top, fav: favs.has(p.id), color: CATEGORIES[p.category]?.color || '#000' },
-        })),
-      }));
+    setPlaces(places, favs) { lastPlaces = places; lastFavs = favs; ready.then(render); },
+    select(id) {
+      selectedId = id;
+      ready.then(() => { map.setFilter('selected', ['==', ['get', 'id'], id || '']); render(); });
     },
-    select(id) { ready.then(() => map.setFilter('selected', ['==', ['get', 'id'], id || ''])); },
-    flyTo(p, offsetY = 0) { map.flyTo({ center: [p.lng, p.lat], zoom: Math.max(map.getZoom(), 15), offset: [0, -offsetY] }); },
+    showShapes(on) {
+      ready.then(() => ['shape-fill', 'shape-outline', 'route-line', 'area-label']
+        .forEach((l) => map.setLayoutProperty(l, 'visibility', on ? 'visible' : 'none')));
+    },
+    flyTo(p, offsetY = 0) {
+      if (p.shape && p.kind !== 'point') {
+        const flat = p.shape.coordinates.flat(3), xs = flat.filter((_, i) => i % 2 === 0), ys = flat.filter((_, i) => i % 2);
+        map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]],
+          { padding: { top: 120, bottom: offsetY * 2 + 20, left: 30, right: 30 }, maxZoom: 15 });
+      } else map.flyTo({ center: [p.lng, p.lat], zoom: Math.max(map.getZoom(), 15), offset: [0, -offsetY] });
+    },
     locate() { geolocate.trigger(); },
     center() { const c = map.getCenter(); return { lat: c.lat, lng: c.lng }; },
     bounds() { return map.getBounds(); },

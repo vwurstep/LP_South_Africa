@@ -69,6 +69,11 @@
     <h3>Menu</h3>
     <button data-act="offline">⬇ Save visible map area offline</button>
     <p id="offline-progress" class="muted small"></p>
+    <button data-act="shapes">Hide areas &amp; routes</button>
+    <h4>Backup &amp; sync</h4>
+    <p id="sync-status" class="muted small"></p>
+    <div class="sync-row"><input id="sync-token" type="password" placeholder="GitHub token (github_pat_…)"><button id="sync-save">Save</button></div>
+    <button id="sync-off" hidden>Turn off sync</button>
     <button data-act="export">Export my places &amp; notes</button>
     <button data-act="import">Import my places &amp; notes</button>
     <input id="import-file" type="file" accept="application/json,.json" hidden>
