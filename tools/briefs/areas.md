@@ -53,3 +53,6 @@ The outline itself is downloaded later by the build (tools/geometry.py) — don'
 Validate the JSON with Python (schema, ids match ^[RW]\d+$ or null, coordinates within the
 chapter bbox plus ~0.5° slack). Final reply per chapter: items by kind, how many with an
 outline — under 80 words total.
+
+Do the work yourself in this session — do not spawn subagents or forks (parallel helpers
+have raced on the same output files before).

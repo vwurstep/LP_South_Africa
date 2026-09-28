@@ -53,3 +53,6 @@ Before finishing, run a Python check: every input idx appears exactly once acros
 places[].candidates and skipped[]; categories valid; coordinates inside the chapter bbox
 (allow ~0.5° slack for "Beyond" places; list any outside and double-check them).
 Final reply: counts only (places per category, skipped, low-confidence) — under 80 words.
+
+Do the work yourself in this session — do not spawn subagents or forks (parallel helpers
+have raced on the same output files before).

@@ -22,3 +22,6 @@ Process: read with Python, write the summaries yourself (no API calls), save, ve
 Python that every input id has a non-empty string. Final reply: one line with the count.
 Scratch files: other agents run in parallel and share the scratchpad — put any helper
 scripts in data/private/summaries/work-<NN>/ (your batch name), never in shared paths.
+
+Do the work yourself in this session — do not spawn subagents or forks (parallel helpers
+have raced on the same output files before).
