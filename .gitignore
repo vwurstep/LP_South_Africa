@@ -3,3 +3,4 @@ book/
 data/private/
 .DS_Store
 node_modules/
+__pycache__/
