@@ -82,7 +82,7 @@ function buildChips() {  // (name kept: called after any data change) — refres
   facets = F.buildFacets(allPlaces());
   const n = visible().length, total = allPlaces().length, filtered = F.activeCount(fstate) > 0;
   $('#btn-filter').classList.toggle('on', filtered);
-  $('#shown-count').textContent = filtered ? `${n.toLocaleString()} of ${total.toLocaleString()} shown` : `All ${total.toLocaleString()} shown`;
+  $('#shown-count').textContent = filtered ? `${n.toLocaleString()} of ${total.toLocaleString()} shown ⤢` : `All ${total.toLocaleString()} shown`;
   if ($('#filters').open) renderFilterPanel();
 }
 function renderFilterPanel() {
@@ -100,6 +100,7 @@ function renderFilterPanel() {
 function setupFilters() {
   const dlg = $('#filters');
   $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); };
+  $('#shown-count').onclick = () => mapView.fitPlaces(visible());  // zoom to what's shown
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-done]')) return dlg.close();  // tap outside or Done
     const b = e.target.closest('button'); if (!b) return;

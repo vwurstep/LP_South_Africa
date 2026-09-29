@@ -41,6 +41,13 @@ point within 150 km, so a park's gate dot gets the park outline.
     No DOM or map code goes in it.
   - `src/map.js` handles the map, `src/sheet.js` the reading panel, and `src/app.js` the
     wiring and UI.
+  - `src/filters.js` is the filter model: independent facets "Show" (dots / areas /
+    routes), "Type" (applies to dots only) and "Source" (Lonely Planet / each friend /
+    road trips / my places). A place is visible if it matches every facet. The options
+    come from the data, and the saved state lists the options that are OFF, so new
+    friends or categories appear switched on. The UI is the ⚲ Filter button + panel in
+    `app.js`, with Select all / Deselect all and All / None per facet. Tapping
+    "N shown" zooms to the shown places.
 - **Guide text is copyrighted, so it is never published in plain text.** A GitHub Pages
   site is public even when the repo is private. The pipeline writes plaintext to
   `data/private/` (gitignored) and publishes only `data/guide.enc.json`, which is
