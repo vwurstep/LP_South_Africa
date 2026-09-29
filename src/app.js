@@ -257,6 +257,11 @@ function setupUpdates() {
   setTimeout(checkForUpdate, 5000);
 }
 
+// iOS: after the keyboard closes the page can stay scrolled up (fixed panels drift off-screen)
+document.addEventListener('focusout', (e) => {
+  if (e.target.matches('input, textarea')) setTimeout(() => window.scrollTo(0, 0), 50);
+});
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 setupUpdates();
 start();

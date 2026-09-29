@@ -33,12 +33,13 @@ button.danger { color: #c92a2a; }
 .fab { position: fixed; right: 14px; bottom: calc(var(--safe-bottom) + 28px); z-index: 2; width: 54px; height: 54px; border-radius: 50%; background: #f08c00; color: #fff; border: 0; font-size: 28px; box-shadow: var(--shadow); }
 
 /* bottom sheet */
-#sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; height: 58vh; background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -2px 14px rgba(0,0,0,.2); display: flex; flex-direction: column; transform: translateY(100%); transition: transform .2s, height .2s; padding-bottom: var(--safe-bottom); }
+#sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; height: 58vh; height: 58dvh; background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -2px 14px rgba(0,0,0,.2); display: flex; flex-direction: column; transform: translateY(100%); transition: transform .2s, height .2s; padding-bottom: var(--safe-bottom); }
 #sheet.open { transform: none; }
-#sheet.full { height: calc(100vh - var(--safe-top) - 10px); }
-.handle { padding: 6px 0 2px; display: flex; justify-content: center; cursor: pointer; }
+#sheet.full { top: calc(var(--safe-top) + 10px); height: auto; }
+#sheet.dragging { transition: none; }
+.handle { padding: 8px 0 6px; display: flex; justify-content: center; cursor: pointer; touch-action: none; }
 .handle span { width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
-.head { padding: 0 14px 8px; border-bottom: 1px solid var(--line); }
+.head { padding: 0 14px 8px; border-bottom: 1px solid var(--line); touch-action: pan-x; }
 .title-row { display: flex; align-items: center; gap: 6px; }
 .badge { color: #fff; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 7px; text-transform: uppercase; letter-spacing: .03em; }
 .badge.top { background: #fab005; color: #212529; }
@@ -82,6 +83,8 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #1e1f22; --fg: #e9ecef; --muted: #adb5bd; --line: #3a3d42; --soft: #2a2c30; }
   .text mark { background: #5c4b00; }
+  .badge.friend { background: #dee2e6; color: #212529; }
+  .rec { border-left-color: #adb5bd; }
   dialog { background: var(--bg); color: var(--fg); }
   dialog input, dialog textarea, .note-box textarea { background: var(--soft); }
 }

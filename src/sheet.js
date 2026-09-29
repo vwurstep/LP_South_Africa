@@ -34,6 +34,32 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
   });
   $('.handle').addEventListener('click', () => el.classList.toggle('full'));
 
+  // swipe the handle/header down: full → half, half → closed; swipe up: half → full.
+  // Works even if the ✕ is ever out of reach.
+  let y0 = null;
+  const grab = (e) => { if (e.target.closest('button, a, textarea')) return; y0 = e.touches[0].clientY; el.classList.add('dragging'); };
+  const move = (e) => {
+    if (y0 === null) return;
+    const dy = e.touches[0].clientY - y0;
+    if (dy > 0) el.style.transform = `translateY(${dy}px)`;
+  };
+  const drop = (e) => {
+    if (y0 === null) return;
+    const dy = (e.changedTouches[0]?.clientY ?? y0) - y0;
+    y0 = null; el.classList.remove('dragging'); el.style.transform = '';
+    if (dy > 80) el.classList.contains('full') ? el.classList.remove('full') : close();
+    else if (dy < -60) el.classList.add('full');
+  };
+  for (const part of [$('.handle'), $('.head')]) {
+    part.addEventListener('touchstart', grab, { passive: true });
+    part.addEventListener('touchmove', move, { passive: true });
+    part.addEventListener('touchend', drop);
+    part.addEventListener('touchcancel', drop);
+  }
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && current) close(); });
+  // iOS can leave the page scrolled up after the keyboard closes, hiding the header
+  el.addEventListener('focusout', (e) => { if (e.target.matches('textarea, input')) setTimeout(() => window.scrollTo(0, 0), 50); });
+
   function renderHead() {
     const p = current, cat = CATEGORIES[p.category] || {};
     const fav = annotation(p.id).fav;
