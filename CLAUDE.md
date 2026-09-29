@@ -74,6 +74,12 @@ point within 150 km, so a park's gate dot gets the park outline.
   matches an existing guide place is attached to it instead of making a duplicate pin.
   Friends' messages stay in `data/private/friends/` and are published only inside the
   encrypted guide file.
+- **Web research (scenic drives)**: `data/private/web/*.json` has the same format as the
+  friends files, plus `sources: [{title, url}]` per item. A rec there has `type: "web"` and
+  shows as "Road trip" with source links. On 2026-09-29 an agent researched about 15 drives
+  for the Cape Town → Johannesburg trip, including Swartberg, the Seven Passes Road,
+  Baviaanskloof, Abel Erasmus… It left out Meiringspoort, closed after the May 2026 floods.
+  The **Routes** chip filters to all lines.
 - **Google**: each place gets a Google Maps link (its Google page when known, otherwise
   a name search). `tools/google_places.py` (key in `data/private/google_api_key.txt`)
   caches Places API matches in `data/private/google.json`. That gives rating, count,
