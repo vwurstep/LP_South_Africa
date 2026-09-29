@@ -99,3 +99,10 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 #menu h4 { margin: 14px 0 2px; }
 #menu .sync-row button { width: auto; margin: 0; }
 #menu .sync-row input { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+
+.badge.web { background: #2b8a3e; }
+.rec.web { border-left-color: #2b8a3e; }
+.rec.web p { font-style: normal; }
+.rec footer a { color: var(--accent); }
+#update-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 96px); z-index: 4;
+  background: #212529; color: #fff; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 600; box-shadow: var(--shadow); white-space: nowrap; }

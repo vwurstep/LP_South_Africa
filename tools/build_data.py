@@ -150,14 +150,20 @@ for ch in CHAPTERS:
         else:
             new_place(item, "lp", ch)
 
-# friends' recommendations (agent-made): data/private/friends/*.json
-for f in sorted((PRIV / "friends").glob("*.json")):
+# recommendations (agent-made): friends' messages (data/private/friends/*.json) and web
+# research such as scenic drives (data/private/web/*.json, items carry `sources`)
+rec_files = [(f, "friend") for f in sorted((PRIV / "friends").glob("*.json"))] + \
+            [(f, "web") for f in sorted((PRIV / "web").glob("*.json")) if f.name != "existing_routes.json"]
+for f, rtype in rec_files:
     rec = json.loads(f.read_text())
     for item in rec["items"]:
-        r = {"by": rec["by"], "date": rec.get("date"), "comment": item.get("comment", "")}
-        target = find_place(item.get("lp_match") or item["name"], item) or find_place(item["name"], item)
+        r = {"by": rec["by"], "date": rec.get("date"), "comment": item.get("comment", ""), "type": rtype}
+        if item.get("sources"):
+            r["sources"] = item["sources"]
+        radius = 150 if item.get("kind") == "route" else 40
+        target = find_place(item.get("lp_match") or item["name"], item, radius) or find_place(item["name"], item, radius)
         if not target:
-            target = new_place(item, "friend", nearest_chapter(item))
+            target = new_place(item, rtype, nearest_chapter(item))
         elif not target.get("shape") and not target.get("osm"):
             add_shape(target, item)
         target["recs"].append(r)

@@ -45,7 +45,8 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
         <span class="badge" style="background:${cat.color}">${esc(cat.label)}</span>
         ${p.top ? '<span class="badge top">Top sight</span>' : ''}
         ${p.price ? `<span class="price">${esc(p.price)}</span>` : ''}
-        ${p.recs?.length ? '<span class="badge friend">Friend tip</span>' : ''}
+        ${p.recs?.some((r) => r.type !== 'web') ? '<span class="badge friend">Friend tip</span>' : ''}
+        ${p.recs?.some((r) => r.type === 'web') ? '<span class="badge web">Road trip</span>' : ''}
         ${rating}
         <span class="spacer"></span>
         <button data-act="fav" class="icon ${fav ? 'on' : ''}" aria-label="Favourite">${fav ? '★' : '☆'}</button>
@@ -90,8 +91,11 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     const a = annotation(p.id);
     const ms = p.mentions || [];
     const summary = p.summary || (p.user ? '' : ms.length ? '' : 'Only shown on the neighbourhood map in the guide, without a description.');
-    const recs = (p.recs || []).map((r) => `<blockquote class="rec"><p>“${esc(r.comment)}”</p>
-      <footer>— ${esc(r.by)}${r.date ? `, ${esc(r.date)}` : ''}</footer></blockquote>`).join('');
+    const recs = (p.recs || []).map((r) => r.type === 'web'
+      ? `<blockquote class="rec web"><p>${esc(r.comment)}</p>
+          <footer>Sources: ${(r.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join(' · ') || esc(r.by)}</footer></blockquote>`
+      : `<blockquote class="rec"><p>“${esc(r.comment)}”</p>
+          <footer>— ${esc(r.by)}${r.date ? `, ${esc(r.date)}` : ''}</footer></blockquote>`).join('');
     const also = others.map((id) => guide.placeById[id]).filter(Boolean);
     $('.body').innerHTML = `
       ${recs}

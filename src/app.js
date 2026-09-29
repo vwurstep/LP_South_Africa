@@ -7,7 +7,7 @@ const $ = (s) => document.querySelector(s);
 const FILTER_KEY = 'lp.filters';
 let guide, mapView, sheet;
 let active = new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || 'null') || ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'area', 'mine']);
-let favOnly = false, tipsOnly = false;
+let favOnly = false, tipsOnly = false, routesOnly = false;
 let showShapes = localStorage.getItem('lp.shapes') !== 'off';
 
 // ---- unlock ------------------------------------------------------------------
@@ -52,8 +52,10 @@ function boot() {
   setupSync();
 }
 
+const isRoute = (p) => p.kind === 'route' || p.shape?.type === 'LineString';
 function visible() {
-  return allPlaces().filter((p) => active.has(p.category) && (!favOnly || data.annotation(p.id).fav) && (!tipsOnly || p.recs?.length));
+  return allPlaces().filter((p) => active.has(p.category) && (!favOnly || data.annotation(p.id).fav) && (!tipsOnly || p.recs?.some((r) => r.type !== 'web'))
+    && (!routesOnly || isRoute(p)));
 }
 function refresh() {
   const favs = new Set(allPlaces().filter((p) => data.annotation(p.id).fav).map((p) => p.id));
@@ -86,11 +88,13 @@ function buildChips() {
     const k = data.CATEGORIES[c];
     return `<button class="chip ${active.has(c) ? 'on' : ''}" data-cat="${c}" style="--c:${k.color}">${k.label}<small>${n}</small></button>`;
   }).join('') + `<button class="chip fav ${favOnly ? 'on' : ''}" data-fav="1" style="--c:#fab005">★ only</button>`
-    + (allPlaces().some((p) => p.recs?.length) ? `<button class="chip ${tipsOnly ? 'on' : ''}" data-tips="1" style="--c:#212529">Friend tips</button>` : '');
+    + `<button class="chip ${routesOnly ? 'on' : ''}" data-routes="1" style="--c:#2b8a3e">Routes</button>`
+    + (allPlaces().some((p) => p.recs?.some((r) => r.type !== 'web')) ? `<button class="chip ${tipsOnly ? 'on' : ''}" data-tips="1" style="--c:#212529">Friend tips</button>` : '');
   box.onclick = (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
     if (b.dataset.fav) favOnly = !favOnly;
     else if (b.dataset.tips) tipsOnly = !tipsOnly;
+    else if (b.dataset.routes) routesOnly = !routesOnly;
     else active.has(b.dataset.cat) ? active.delete(b.dataset.cat) : active.add(b.dataset.cat);
     localStorage.setItem(FILTER_KEY, JSON.stringify([...active]));
     buildChips(); refresh();
@@ -219,5 +223,40 @@ function setupSync() {
   navigator.storage?.persist?.();
 }
 
+// ---- app updates ------------------------------------------------------------------
+// iOS keeps a home-screen app alive in memory, so reopening it doesn't reload it. Compare
+// the loaded version with version.json on the server and offer a one-tap update.
+let appVersion = null;
+async function serverVersion() {
+  const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+  return (await r.json()).version;
+}
+async function checkForUpdate(manual = false) {
+  const out = $('#update-status');
+  try {
+    const v = await serverVersion();
+    if (appVersion && v !== appVersion) { $('#update-banner').hidden = false; if (manual) out.textContent = `New version ${v} available.`; }
+    else if (manual) out.textContent = `You have the latest version (${appVersion}).`;
+  } catch { if (manual) out.textContent = 'Offline — can’t check for updates.'; }
+}
+async function applyUpdate() {
+  $('#update-banner').textContent = 'Updating…';
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+    // drop the cached app files (not the offline map tiles; stars/notes live elsewhere)
+    for (const k of await caches.keys()) if (k !== 'lpsa-tiles') await caches.delete(k);
+  } catch {}
+  location.reload();
+}
+function setupUpdates() {
+  serverVersion().then((v) => { appVersion = v; $('#app-version').textContent = v; }).catch(() => {});
+  $('#update-banner').onclick = applyUpdate;
+  $('#btn-update').onclick = () => checkForUpdate(true);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && checkForUpdate());
+  setTimeout(checkForUpdate, 5000);
+}
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+setupUpdates();
 start();

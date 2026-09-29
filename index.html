@@ -27,6 +27,7 @@
   </header>
 
   <button id="btn-add" class="fab" aria-label="Add place">＋</button>
+  <button id="update-banner" hidden>↻ Update available — tap</button>
 
   <section id="sheet" hidden>
     <div class="handle"><span></span></div>
@@ -77,6 +78,8 @@
     <button data-act="export">Export my places &amp; notes</button>
     <button data-act="import">Import my places &amp; notes</button>
     <input id="import-file" type="file" accept="application/json,.json" hidden>
+    <button id="btn-update">↻ Check for updates</button>
+    <p id="update-status" class="muted small">Version <span id="app-version">?</span></p>
     <button data-act="lock">Forget passphrase</button>
     <button data-act="close" class="primary">Close</button>
   </dialog>

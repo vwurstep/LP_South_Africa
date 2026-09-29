@@ -117,7 +117,8 @@ each agent prompt only says which files to process.
    Friends: `data/private/friends/*.json` (see `.claude/skills/add-recommendations`).
    Optional: `python3 tools/google_places.py`, then re-run the build.
    **QA:** `data/private/summaries/fix-*.json` (`{id: corrected summary}`) overrides every
-   earlier summary. A check on 2026-09-29 of 148 sampled summaries (areas weighted
+   earlier summary. A full check of all summaries runs with brief `tools/briefs/qa.md`
+  (batches `qa-batch-NN.json` → `fix-qa-NN.json`). A check on 2026-09-29 of 148 sampled summaries (areas weighted
    heavily) found about 8% with a real error. Typical errors are a detail taken from a
    neighbouring place in the same paragraph, or an invented specific. Areas are the
    riskiest. Always give QA agents the **full** excerpts: truncated ones produce false
@@ -149,7 +150,12 @@ mentions.
 - Phil wants to iterate on the look. Keep the UI simple and easy to change.
 - Use subagents for bulk book reading and geocoding. Don't read whole chapters in the
   main session.
-- Bump `CACHE` in `sw.js` whenever app files change.
+- **Before every push that changes app files or data, run `python3 tools/release.py`.**
+  It stamps `version.json` and the `CACHE` name in `sw.js`. On open or resume, the app
+  compares its version with the server's and shows "↻ Update available". Tapping it
+  clears the app caches (not the tiles or user data) and reloads. Menu →
+  "Check for updates" does the same by hand. The service worker revalidates
+  (`cache: 'no-cache'`) because GitHub Pages sends max-age=600.
 - Visual checks: Playwright WebKit with the iPhone 13 device profile, script in
   `$TMPDIR/pw` (see memory). Headless Chrome CLI screenshots come out with an empty map.
 - Local run: `python3 -m http.server 8000` in the repo root, then open
