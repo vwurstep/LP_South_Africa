@@ -267,6 +267,14 @@ for ch in CHAPTERS:
                 keep["summary"] = p["summary"]
             places.remove(p)
 
+# QA corrections win over everything, including summaries picked during merges above
+fixes = {}
+for f in sorted(SUM.glob("fix-*.json")):
+    fixes.update(json.loads(f.read_text()))
+for p in places:
+    if p["id"] in fixes:
+        p["summary"] = fixes[p["id"]]
+
 # places sharing exact coordinates (usually approximate geocodes): fan them out ~20 m
 by_pos = {}
 for p in places:
