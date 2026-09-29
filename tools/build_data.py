@@ -216,7 +216,8 @@ for p in places:
 # summaries written by subagents from the excerpts (data/private/summaries/out-*.json)
 SUM = PRIV / "summaries"
 summaries = {}
-for f in sorted(SUM.glob("out-*.json")) + sorted(SUM.glob("done-*.json")):
+# fix-*.json (QA corrections) come last and override earlier summaries
+for f in sorted(SUM.glob("out-*.json")) + sorted(SUM.glob("done-*.json")) + sorted(SUM.glob("fix-*.json")):
     summaries.update(json.loads(f.read_text()))
 # todo files without a matching done file are still being worked on by an agent: leave
 # them alone and don't hand out their places again
