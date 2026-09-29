@@ -116,6 +116,12 @@ each agent prompt only says which files to process.
    name as in the book, kind, OSM id or line, `lp_match` to put a shape on an existing point).
    Friends: `data/private/friends/*.json` (see `.claude/skills/add-recommendations`).
    Optional: `python3 tools/google_places.py`, then re-run the build.
+   **QA:** `data/private/summaries/fix-*.json` (`{id: corrected summary}`) overrides every
+   earlier summary. A check on 2026-09-29 of 148 sampled summaries (areas weighted
+   heavily) found about 8% with a real error. Typical errors are a detail taken from a
+   neighbouring place in the same paragraph, or an invented specific. Areas are the
+   riskiest. Always give QA agents the **full** excerpts: truncated ones produce false
+   "invented" flags. Report: `data/private/summaries/qa2-20260929-report.md`.
 4. `node tools/encrypt.mjs` writes `data/guide.enc.json` (passphrase from
    `data/private/passphrase.txt`).
 
