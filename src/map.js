@@ -134,6 +134,11 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
           { padding: { top: 120, bottom: offsetY * 2 + 20, left: 30, right: 30 }, maxZoom: 15 });
       } else map.flyTo({ center: [p.lng, p.lat], zoom: Math.max(map.getZoom(), 15), offset: [0, -offsetY] });
     },
+    fitPlaces(places) {
+      if (!places.length) return;
+      const xs = places.map((p) => p.lng), ys = places.map((p) => p.lat);
+      map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 14 });
+    },
     locate() { geolocate.trigger(); },
     center() { const c = map.getCenter(); return { lat: c.lat, lng: c.lng }; },
     bounds() { return map.getBounds(); },

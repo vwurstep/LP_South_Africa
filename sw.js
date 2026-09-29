@@ -2,7 +2,7 @@
    cache fallback (offline). Map tiles/fonts/sprites/style: cache first, kept in a
    separate cache that survives app updates. CACHE is set by tools/release.py (same stamp
    as version.json, which the app compares to offer "update available"). */
-var CACHE = 'lpsa-2026-09-29.201817';
+var CACHE = 'lpsa-2026-09-29.223541';
 var TILES = 'lpsa-tiles';
 var FILES = ['./', './index.html', './src/style.css', './src/app.js', './src/data.js', './src/map.js',
              './src/sheet.js', './lib/maplibre-gl.js', './lib/maplibre-gl.css', './data/guide.enc.json',

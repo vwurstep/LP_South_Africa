@@ -2,12 +2,11 @@
 import * as data from './data.js';
 import { createMap, countTiles, downloadTiles } from './map.js';
 import { createSheet } from './sheet.js';
+import * as F from './filters.js';
 
 const $ = (s) => document.querySelector(s);
-const FILTER_KEY = 'lp.filters';
 let guide, mapView, sheet;
-let active = new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || 'null') || ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'area', 'mine']);
-let favOnly = false, tipsOnly = false, routesOnly = false;
+let fstate = F.loadState(), facets = [];
 let showShapes = localStorage.getItem('lp.shapes') !== 'off';
 
 // ---- unlock ------------------------------------------------------------------
@@ -42,9 +41,10 @@ function boot() {
     onOpenPlace: (id) => openPlace(id),
     onEditUser: (p) => openAdd(p),
     onClose: () => mapView.select(null),
-    onChange: refresh,
+    onChange: () => { refresh(); buildChips(); },
   });
   mapView.showShapes(showShapes);
+  setupFilters();
   buildChips();
   refresh();
   setupSearch();
@@ -52,10 +52,8 @@ function boot() {
   setupSync();
 }
 
-const isRoute = (p) => p.kind === 'route' || p.shape?.type === 'LineString';
 function visible() {
-  return allPlaces().filter((p) => active.has(p.category) && (!favOnly || data.annotation(p.id).fav) && (!tipsOnly || p.recs?.some((r) => r.type !== 'web'))
-    && (!routesOnly || isRoute(p)));
+  return allPlaces().filter(F.matcher(fstate, (id) => data.annotation(id).fav));
 }
 function refresh() {
   const favs = new Set(allPlaces().filter((p) => data.annotation(p.id).fav).map((p) => p.id));
@@ -78,27 +76,40 @@ function openRef(ref) {
   if (s) sheet.open({ id: 'section-' + s.id, name: s.title, category: 'info', mentions: [{ section: s.id, anchor: ref }], lat: 0, lng: 0 });
 }
 
-// ---- filter chips -------------------------------------------------------------
-function buildChips() {
-  const box = $('#chips');
-  const cats = ['sight', 'activity', 'eat', 'drink', 'sleep', 'shop', 'area', 'info', 'transport', 'mine'];
-  box.innerHTML = cats.map((c) => {
-    const n = allPlaces().filter((p) => p.category === c).length;
-    if (!n && c !== 'mine') return '';
-    const k = data.CATEGORIES[c];
-    return `<button class="chip ${active.has(c) ? 'on' : ''}" data-cat="${c}" style="--c:${k.color}">${k.label}<small>${n}</small></button>`;
-  }).join('') + `<button class="chip fav ${favOnly ? 'on' : ''}" data-fav="1" style="--c:#fab005">★ only</button>`
-    + `<button class="chip ${routesOnly ? 'on' : ''}" data-routes="1" style="--c:#2b8a3e">Routes</button>`
-    + (allPlaces().some((p) => p.recs?.some((r) => r.type !== 'web')) ? `<button class="chip ${tipsOnly ? 'on' : ''}" data-tips="1" style="--c:#212529">Friend tips</button>` : '');
-  box.onclick = (e) => {
-    const b = e.target.closest('.chip'); if (!b) return;
-    if (b.dataset.fav) favOnly = !favOnly;
-    else if (b.dataset.tips) tipsOnly = !tipsOnly;
-    else if (b.dataset.routes) routesOnly = !routesOnly;
-    else active.has(b.dataset.cat) ? active.delete(b.dataset.cat) : active.add(b.dataset.cat);
-    localStorage.setItem(FILTER_KEY, JSON.stringify([...active]));
-    buildChips(); refresh();
-  };
+// ---- filters: button + panel (logic in filters.js) --------------------------------
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function buildChips() {  // (name kept: called after any data change) — refresh counts + labels
+  facets = F.buildFacets(allPlaces());
+  const n = visible().length, total = allPlaces().length, filtered = F.activeCount(fstate) > 0;
+  $('#btn-filter').classList.toggle('on', filtered);
+  $('#shown-count').textContent = filtered ? `${n.toLocaleString()} of ${total.toLocaleString()} shown` : `All ${total.toLocaleString()} shown`;
+  if ($('#filters').open) renderFilterPanel();
+}
+function renderFilterPanel() {
+  const opt = (f, o) => `<button class="chip ${F.isOn(fstate, f.id, o.id) ? 'on' : ''}" data-f="${f.id}" data-o="${esc(o.id)}" style="--c:${o.color}">`
+    + `${esc(o.label)}${o.sub ? ` <em>${esc(o.sub)}</em>` : ''}<small>${o.n.toLocaleString()}</small></button>`;
+  $('#filters .fp-body').innerHTML = `
+    <div class="fp-top"><strong>${visible().length.toLocaleString()} shown</strong><span class="spacer"></span>
+      <button data-all="1">Select all</button><button data-none="1">Deselect all</button></div>
+    ${facets.map((f) => `<section>
+      <div class="fp-head"><h4>${f.label}</h4>${f.note ? `<small class="muted">${f.note}</small>` : ''}<span class="spacer"></span>
+        <button class="link" data-fall="${f.id}">All</button><span class="muted">·</span><button class="link" data-fnone="${f.id}">None</button></div>
+      <div class="fp-opts">${f.options.map((o) => opt(f, o)).join('')}</div></section>`).join('')}
+    <section><div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005">★ Favourites only</button></div></section>`;
+}
+function setupFilters() {
+  const dlg = $('#filters');
+  $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); };
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg || e.target.closest('[data-done]')) return dlg.close();  // tap outside or Done
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.all || b.dataset.none) { F.setAll(fstate, facets, !!b.dataset.all); if (b.dataset.all) fstate.favOnly = false; }
+    else if (b.dataset.fall || b.dataset.fnone) F.setAll(fstate, facets, !!b.dataset.fall, b.dataset.fall || b.dataset.fnone);
+    else if (b.dataset.favonly) fstate.favOnly = !fstate.favOnly;
+    else if (b.dataset.f) F.setOn(fstate, b.dataset.f, b.dataset.o, !F.isOn(fstate, b.dataset.f, b.dataset.o));
+    else return;
+    F.saveState(fstate); refresh(); buildChips();
+  });
 }
 
 // ---- search -------------------------------------------------------------------
@@ -147,7 +158,7 @@ function openAdd(p = {}) {
     const loc = data.parseLocation(f.loc.value);
     if (!loc) { e.preventDefault(); $('#add-error').hidden = false; $('#add-error').textContent = 'Location not recognised. Paste “lat, lng” or a full Google Maps URL.'; return; }
     const saved = data.saveUserPlace({ id: f.dataset.id || undefined, name: f.name.value.trim() || 'My place', note: f.note.value.trim(), lat: loc.lat, lng: loc.lng });
-    active.add('mine'); buildChips(); refresh();
+    F.setOn(fstate, 'source', 'mine', true); F.setOn(fstate, 'kind', 'places', true); F.saveState(fstate); buildChips(); refresh();
     openPlace(saved.id);
   };
 }

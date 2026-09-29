@@ -23,7 +23,10 @@
       <button id="btn-menu" class="icon" aria-label="Menu">☰</button>
     </div>
     <ul id="results" hidden></ul>
-    <div id="chips"></div>
+    <div id="filterbar">
+      <button id="btn-filter" class="chip" style="--c:#1971c2">⚲ Filter</button>
+      <span id="shown-count"></span>
+    </div>
   </header>
 
   <button id="btn-add" class="fab" aria-label="Add place">＋</button>
@@ -64,6 +67,11 @@
         <button value="save" class="primary">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="filters">
+    <div class="fp-body"></div>
+    <button data-done="1" class="primary fp-done">Done</button>
   </dialog>
 
   <dialog id="menu">
