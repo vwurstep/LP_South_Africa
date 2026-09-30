@@ -147,8 +147,15 @@ export async function sync() {
     if (res.ok) {
       const file = await res.json();
       sha = file.sha;
-      try { importUserData(await decryptJSON(JSON.parse(atob(file.content.replace(/\n/g, ''))), pass)); }
-      catch { /* encrypted with an older passphrase: this device's copy replaces it */ }
+      const raw = atob(file.content.replace(/\n/g, ''));
+      try { importUserData(await decryptJSON(JSON.parse(raw), pass)); }
+      catch {
+        // can't read it (e.g. an older passphrase): keep that copy aside before this device's
+        // data replaces it, so nothing is ever lost
+        const keep = { ...s, path: s.path.replace(/\.json$/, `.unreadable-${Date.now()}.json`) };
+        const saved = await gh(keep, 'PUT', { message: 'Keep unreadable user data copy', branch: s.branch, content: btoa(raw) });
+        if (!saved.ok) throw new Error('could not keep old backup');
+      }
     } else if (res.status !== 404) throw new Error(`GitHub ${res.status}`);
     const enc = await encryptJSON(exportUserData(), pass);
     const put = await gh(s, 'PUT', { message: 'Sync user data', branch: s.branch, sha,
