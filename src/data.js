@@ -16,6 +16,18 @@ export const CATEGORIES = {  // colour for pins/badges, emoji for pin icons and 
   mine:      { label: 'Mine',      color: '#f08c00', emoji: '❤️' },
 };
 
+/** Subcategories of sights; a sight can have several, the first one gives its map icon. */
+export const SIGHT_TAGS = {
+  museum:   { label: 'Museums & galleries', short: 'Museums',   emoji: '🖼️' },
+  history:  { label: 'History & heritage',  short: 'History',   emoji: '🏰' },
+  nature:   { label: 'Nature & parks',      short: 'Nature',    emoji: '🌿' },
+  coast:    { label: 'Beaches & coast',     short: 'Coast',     emoji: '🏖️' },
+  wildlife: { label: 'Wildlife',            short: 'Wildlife',  emoji: '🦁' },
+  views:    { label: 'Viewpoints & drives', short: 'Views',     emoji: '🔭' },
+  wine:     { label: 'Wine estates',        short: 'Wine',      emoji: '🍷' },
+  city:     { label: 'City & culture',      short: 'City',      emoji: '🏙️' },
+};
+
 const PASS_KEY = 'lp.passphrase';
 const USER_KEY = 'lp.user.places';
 const ANNO_KEY = 'lp.user.annotations'; // { placeId: { fav, note, updated } }

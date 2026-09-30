@@ -1,6 +1,6 @@
 /* Map rendering (MapLibre GL + OpenFreeMap vector tiles). Knows the place shape from
    data.js but nothing about panels or storage. */
-import { CATEGORIES } from './data.js';
+import { CATEGORIES, SIGHT_TAGS } from './data.js';
 
 export const STYLES = {
   day: 'https://tiles.openfreemap.org/styles/liberty',
@@ -41,7 +41,9 @@ function nearestDistances(pts) {
 function addPinImages(map, night) {
   const r = Math.min(3, Math.max(2, Math.round(window.devicePixelRatio || 2)));
   const S = 32 * r;  // 32 css px
-  for (const [cat, { color }] of Object.entries(CATEGORIES)) {
+  const pins = [...Object.entries(CATEGORIES).map(([cat, { color, emoji }]) => [cat, color, emoji]),
+                ...Object.entries(SIGHT_TAGS).map(([t, { emoji }]) => ['sight-' + t, CATEGORIES.sight.color, emoji])];
+  for (const [cat, color, emoji] of pins) {
     const c = document.createElement('canvas'); c.width = c.height = S;
     const x = c.getContext('2d');
     x.beginPath(); x.arc(S / 2, S / 2, S / 2 - 2 * r, 0, Math.PI * 2);
@@ -49,7 +51,7 @@ function addPinImages(map, night) {
     x.lineWidth = 3 * r; x.strokeStyle = color; x.stroke();
     x.font = `${14 * r}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
     x.textAlign = 'left'; x.textBaseline = 'alphabetic';
-    const e = CATEGORIES[cat].emoji || '•', m = x.measureText(e);
+    const e = emoji || '•', m = x.measureText(e);
     const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
     x.fillText(e, (S - w) / 2 + m.actualBoundingBoxLeft, (S - h) / 2 + m.actualBoundingBoxAscent);
     const id = 'pin-' + cat;
@@ -137,7 +139,7 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
                 'symbol-sort-key': ['case', ['get', 'top'], 0, ['get', 'fav'], 1, 2] },
       paint: { 'text-color': night ? '#e9eef3' : '#212529', 'text-halo-color': halo, 'text-halo-width': 1.5 } });
     map.addLayer({ id: 'places-icon', type: 'symbol', source: 'places', filter: ['all', isPoint, expanded],
-      layout: { 'icon-image': ['concat', 'pin-', ['get', 'cat']], 'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_MIN, 0.75, ICON_ZOOM, 0.8, 16, 1.1],
+      layout: { 'icon-image': ['concat', 'pin-', ['get', 'pin']], 'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_MIN, 0.75, ICON_ZOOM, 0.8, 16, 1.1],
                 'icon-allow-overlap': true, 'icon-ignore-placement': false, 'icon-padding': 0,  // always shown; names avoid them
                 'symbol-sort-key': ['case', ['get', 'top'], 0, 1] } });
     if (!shapesOn) ['shape-fill', 'shape-outline', 'route-line', 'area-label'].forEach((l) => map.setLayoutProperty(l, 'visibility', 'none'));
@@ -216,6 +218,7 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
         type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         properties: { id: p.id, name: p.name, kind: p.kind || 'point', top: !!p.top, fav: lastFavs.has(p.id),
           rec: !!p.recs?.some((r) => r.type !== 'web'), color: color(p), cat: CATEGORIES[p.category] ? p.category : 'info',
+          pin: p.category === 'sight' && SIGHT_TAGS[p.tags?.[0]] ? 'sight-' + p.tags[0] : (CATEGORIES[p.category] ? p.category : 'info'),
           iz: detail.get(p.id)?.iz ?? ICON_ZOOM, lz: detail.get(p.id)?.lz ?? LABEL_ZOOM },
       })),
     });

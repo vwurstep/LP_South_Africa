@@ -58,7 +58,19 @@ point within 150 km, so a park's gate dot gets the park outline.
       selection ring is sized to the dot or the disc (two layers). Favourites get a gold
       ring, and only friends' tips get a dark ring (not web tips). Tuning = the constants
       at the top of map.js.
+    - **Sight subcategories** (2026-09-30): `tags` from `data/private/tags/sights.json`,
+      made by an agent from name, subcategory and summary. A sight can have several tags,
+      e.g. Castle of Good Hope = museum + history; the first tag decides the pin emoji.
+      Definitions (label + emoji) are `SIGHT_TAGS` in `src/data.js`. The filter facet
+      "Kind of sight" applies to sight dots only; untagged sights always pass. New sights
+      from later chapters or friends need tagging, and the build prints "N sights without
+      tags".
     - The page runs under the iOS status bar (`black-translucent`) with a faint top scrim.
+      This status bar setting only takes effect when the app is re-added to the home
+      screen. That leaves the known iOS gap at the bottom (window shifted up, not made
+      taller): `fitScreen()` in app.js measures it, sets `--app-extra`, and the map, dock,
+      side stack, sheet and filter panel extend into it. It only applies in standalone
+      portrait with safe-area-top > 0.
       Before that, iOS 26 tinted the band above the frosted search bar grey.
     - The panel has a Directions / Save / Note row. Directions goes to coordinates, or by
       name when the position is only a guess.
@@ -182,6 +194,7 @@ marks a place, `p.wh-stay` a stay, `div.map-keys-poi` a map legend entry under
   places:   [{id, name, category, subcategory, area, top, price, lat, lng, summary,
               kind: point|area|route, shape?: GeoJSON, source: lp|friend,
               recs: [{by, date, comment}], google?: {id, rating, count, uri},
+              tags?: [museum|history|nature|coast|wildlife|views|wine|city],  // sights only
               geo:{source, confidence, note},
               mentions:[{section, anchor|null, label?, excerpt}]}] }   // max 12 mentions
 ```

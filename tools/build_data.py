@@ -267,6 +267,18 @@ for ch in CHAPTERS:
                 keep["summary"] = p["summary"]
             places.remove(p)
 
+# subcategory tags for sights (agent-made): data/private/tags/sights.json {id: [tag, ...]}
+SIGHT_TAGS = {"museum", "history", "nature", "coast", "wildlife", "views", "wine", "city"}
+tf = PRIV / "tags" / "sights.json"
+tags = json.loads(tf.read_text()) if tf.exists() else {}
+for p in places:
+    t = [x for x in tags.get(p["id"], []) if x in SIGHT_TAGS]
+    if p["category"] == "sight" and t:
+        p["tags"] = t
+untagged = [p["name"] for p in places if p["category"] == "sight" and not p.get("tags")]
+if untagged:
+    print(f"{len(untagged)} sights without tags (new since tagging?), e.g. {untagged[:5]}")
+
 # QA corrections win over everything, including summaries picked during merges above
 fixes = {}
 for f in sorted(SUM.glob("fix-*.json")):

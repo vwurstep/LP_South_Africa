@@ -2,7 +2,7 @@
    matches every facet (and ★-only, if on). No DOM here.
    New options appear automatically: facet options are derived from the data (e.g. one
    source option per friend), and options not yet in the saved state start switched on. */
-import { CATEGORIES } from './data.js';
+import { CATEGORIES, SIGHT_TAGS } from './data.js';
 
 const KEY = 'lp.filters.v2';
 
@@ -31,6 +31,7 @@ export function buildFacets(places) {
   const kinds = count(kindsOf), srcs = count(sourcesOf);
   const types = count((p) => (kindsOf(p).includes('places') && !p.user ? [p.category] : []));
   const friends = Object.keys(srcs).filter((s) => s.startsWith('friend:')).sort();
+  const stags = count((p) => (p.category === 'sight' && kindsOf(p).includes('places') ? p.tags || [] : []));
   return [
     { id: 'kind', label: 'Show', options: [
       { id: 'places', label: 'Places', emoji: '📍', color: '#495057', n: kinds.places || 0 },
@@ -40,6 +41,9 @@ export function buildFacets(places) {
     { id: 'type', label: 'Type of place', note: 'applies to the dots',
       options: Object.keys(CATEGORIES).filter((c) => types[c])
         .map((c) => ({ id: c, label: CATEGORIES[c].label, emoji: CATEGORIES[c].emoji, color: CATEGORIES[c].color, n: types[c] })) },
+    { id: 'sight', label: 'Kind of sight', note: 'applies to sights',
+      options: Object.keys(SIGHT_TAGS).filter((t) => stags[t])
+        .map((t) => ({ id: t, label: SIGHT_TAGS[t].label, emoji: SIGHT_TAGS[t].emoji, color: CATEGORIES.sight.color, n: stags[t] })) },
     { id: 'source', label: 'Source', options: [
       { id: 'lp', label: 'Lonely Planet', emoji: '📘', color: '#1971c2', n: srcs.lp || 0 },
       ...friends.map((f) => ({ id: f, label: f.slice(7), sub: 'friend', emoji: '💬', color: '#495057', n: srcs[f] })),
@@ -75,6 +79,7 @@ export function matcher(st, isFav) {
     if (st.favOnly && !isFav(p.id)) return false;
     if (!sourcesOf(p).some((s) => isOn(st, 'source', s))) return false;
     if (st.routesOnly) return kindsOf(p).includes('routes');  // quick switch: only the lines
-    return kindsOf(p).some((k) => isOn(st, 'kind', k) && (k !== 'places' || p.user || isOn(st, 'type', p.category)));
+    const sightOk = p.category !== 'sight' || !p.tags?.length || p.tags.some((t) => isOn(st, 'sight', t));
+    return kindsOf(p).some((k) => isOn(st, 'kind', k) && (k !== 'places' || p.user || (isOn(st, 'type', p.category) && sightOk)));
   };
 }

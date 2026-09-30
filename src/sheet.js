@@ -1,6 +1,6 @@
 /* Bottom sheet: one place. Summary on top, then every mention in the guide as a card
    (the paragraph that mentions it; the full section can be expanded). */
-import { CATEGORIES, annotation, setAnnotation, googleMapsUrl } from './data.js';
+import { CATEGORIES, SIGHT_TAGS, annotation, setAnnotation, googleMapsUrl } from './data.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -83,6 +83,7 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
         <button data-act="close" class="icon" aria-label="Close">✕</button>
       </div>
       <h2>${esc(p.name)}</h2>
+      ${p.tags?.length ? `<div class="tags">${p.tags.filter((t) => SIGHT_TAGS[t]).map((t) => `<span>${SIGHT_TAGS[t].emoji} ${esc(SIGHT_TAGS[t].label)}</span>`).join('')}</div>` : ''}
       <div class="meta">${[esc([p.subcategory, [p.locality, p.area].find((x) => x && x !== p.name)].filter(Boolean).join(' · ')), `<a href="${gmaps}" target="_blank" rel="noopener">Google Maps ↗</a>`].filter(Boolean).join(' · ')}
         ${p.geo?.confidence === 'low' && (p.kind || 'point') === 'point' ? ' · <span class="warn" title="Approximate location">≈ location</span>' : ''}
         ${p.user ? ' · <a href="#" data-act="edit">Edit</a>' : ''}</div>

@@ -347,6 +347,25 @@ function setupUpdates() {
   setTimeout(checkForUpdate, 5000);
 }
 
+// iOS home-screen app with a translucent status bar: iOS moves the window up under the status
+// bar but doesn't make it taller, leaving an empty strip at the bottom. Measure the gap and let
+// the map (and the bottom UI) extend into it. Only when that quirk is really present.
+function fitScreen() {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;height:0;padding-top:env(safe-area-inset-top);visibility:hidden';
+  document.body.appendChild(probe);
+  const safeTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+  probe.remove();
+  const portrait = innerHeight > innerWidth;
+  const gap = navigator.standalone && portrait && safeTop > 0 ? Math.max(0, screen.height - innerHeight) : 0;
+  const extra = gap > 0 && gap <= safeTop + 2 ? gap : 0;  // the gap is at most the status bar height
+  document.documentElement.style.setProperty('--app-extra', `${extra}px`);
+  mapView?.map.resize();
+}
+addEventListener('resize', fitScreen);
+addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
+fitScreen();
+
 // iOS: after the keyboard closes the page can stay scrolled up (fixed panels drift off-screen)
 document.addEventListener('focusout', (e) => {
   if (e.target.matches('input, textarea')) setTimeout(() => window.scrollTo(0, 0), 50);
