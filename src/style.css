@@ -38,7 +38,8 @@ button.danger { color: #e03131; }
 
 /* top: frosted search only */
 #top { position: fixed; top: calc(var(--safe-top) + 8px); left: 8px; right: 8px; z-index: 2; }
-.searchbar { display: flex; border-radius: 18px; }
+.searchbar { display: flex; align-items: center; border-radius: 18px; }
+#btn-menu { flex: none; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; background: none; color: var(--fg); border-radius: 14px; }
 #search { flex: 1; border: 0; background: none; padding: 12px 14px; font-size: 16px; outline: none; min-width: 0; color: var(--fg); }
 #search::placeholder { color: var(--muted); }
 #results { list-style: none; margin: 6px 0 0; padding: 4px 0; background: var(--bg); color: var(--fg); border-radius: 16px; box-shadow: var(--shadow); max-height: 50vh; overflow: auto; }
@@ -48,13 +49,16 @@ button.danger { color: #e03131; }
 .maplibregl-ctrl-top-right { display: none; }  /* MapLibre's own location button: we show ours */
 
 /* map credit: small (i) bottom left, clear of the floating bar */
-.maplibregl-ctrl-bottom-left { bottom: calc(var(--safe-bottom) + 30px); left: 4px; }
+.maplibregl-ctrl-bottom-left { bottom: calc(var(--safe-bottom) + 90px + var(--app-extra, 0px)); left: 6px; }
 .maplibregl-ctrl-attrib { background: var(--glass) !important; color: var(--muted); }
 .maplibregl-ctrl-attrib a { color: var(--muted) !important; }
 :root[data-theme="night"] .maplibregl-ctrl-attrib-button { filter: invert(1); }
 
-/* floating glass bar (Filter · Saved · Routes · Add) */
-#dock { --glass: var(--glass-strong); position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 22px); z-index: 3;
+/* bottom row: floating glass bar (Filter · Saved · Routes · Add) left, compass/location right */
+#bottom-row { position: fixed; left: 12px; right: 12px; bottom: calc(var(--safe-bottom) + 22px); z-index: 3;
+              display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; pointer-events: none; }
+#bottom-row > * { pointer-events: auto; }
+#dock { --glass: var(--glass-strong); flex: 0 1 auto; min-width: 0;
         display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 999px; }
 #dock button { height: 46px; padding: 0 13px; border-radius: 999px; border: 0; background: none; color: inherit;
                display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 15px; }
@@ -66,14 +70,13 @@ button.danger { color: #e03131; }
 #dock svg, #side svg { flex: none; }
 
 /* compass + my location: slim stack on the right above the bar; compass only when rotated */
-#side { position: fixed; right: 12px; bottom: calc(var(--safe-bottom) + 92px); z-index: 3; display: grid; padding: 4px;
-        border-radius: 22px; --glass: var(--glass-strong); }
-#side button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: inherit; border-radius: 18px; padding: 0; }
+#side { flex: none; display: grid; padding: 3px; border-radius: 26px; --glass: var(--glass-strong); }
+#side button { width: 52px; height: 52px; display: grid; place-items: center; border: 0; background: none; color: inherit; border-radius: 18px; padding: 0; }
 #side .sep { height: 1px; background: currentColor; opacity: .12; margin: 0 8px; }
 #btn-locate.following { color: var(--link); }
 #btn-locate.following svg { fill: currentColor; }
 .needle { transform-origin: 12px 12px; }
-body.sheet-open #dock, body.sheet-open #side { display: none; }
+body.sheet-open #bottom-row { display: none; }
 
 /* bottom sheet */
 #sheet { position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--app-extra, 0px)); z-index: 4; height: 58vh; height: 58dvh; background: var(--bg); color: var(--fg);
@@ -166,7 +169,7 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 .chip em { font-style: normal; font-weight: 400; opacity: .7; font-size: 12px; }
 .chip.on { background: color-mix(in srgb, var(--c) 13%, var(--panel)); color: var(--fg);
            border-color: color-mix(in srgb, var(--c) 32%, transparent); }
-#filters { margin: auto 0 calc(-1 * var(--app-extra, 0px)); width: 100%; max-width: 100%; max-height: 85dvh; border-radius: 22px 22px 0 0; background: var(--panel);
+#filters { margin: auto 0 0; width: 100%; max-width: 100%; max-height: 85dvh; border-radius: 22px 22px 0 0; background: var(--panel);
   padding: 14px 14px calc(var(--safe-bottom) + 12px); display: none; flex-direction: column; }
 #filters[open] { display: flex; }
 #filters::backdrop { background: rgba(0,0,0,.2); }
@@ -188,3 +191,14 @@ button:focus:not(:focus-visible) { outline: none; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
 .tags span { font-size: 13px; font-weight: 600; background: var(--card); border-radius: 999px; padding: 3px 9px; }
+
+/* iOS bottom gap present: panels in the top layer can't paint into it, so the filter panel
+   floats as a card just above it instead of touching the edge */
+html.gap #filters { margin: auto 8px 8px; width: calc(100% - 16px); border-radius: 22px; padding-bottom: 14px; }
+/* narrower phones (iPhone SE 2/3, mini: 375px): tighter bar so it fits beside the location button */
+@media (max-width: 389px) {
+  #dock button { padding: 0 9px; gap: 5px; }
+  #dock .sep { margin: 0; }
+  #dock .add { margin-left: 2px; }
+}
+@media (max-width: 350px) { #dock .cnt { display: none; } #bottom-row { left: 8px; right: 8px; } }

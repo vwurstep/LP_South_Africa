@@ -360,6 +360,7 @@ function fitScreen() {
   const gap = navigator.standalone && portrait && safeTop > 0 ? Math.max(0, screen.height - innerHeight) : 0;
   const extra = gap > 0 && gap <= safeTop + 2 ? gap : 0;  // the gap is at most the status bar height
   document.documentElement.style.setProperty('--app-extra', `${extra}px`);
+  document.documentElement.classList.toggle('gap', extra > 0);
   mapView?.map.resize();
 }
 addEventListener('resize', fitScreen);
