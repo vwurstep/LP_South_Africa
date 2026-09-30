@@ -185,6 +185,8 @@ mentions.
   Phil's picks: the current liberty map; A's icon pins with names when zoomed in; A's frosted
   search; a Directions/Save/Note row; auto night mode (sunset/sunrise) with a manual switch;
   controls at the bottom (options: floating glass bar / search at bottom / corner buttons).
-  He found D's tab bar too old-fashioned.
+  He found D's tab bar too old-fashioned and chose option 1, the floating glass bar. Round 3
+  (`tools/design/mock3.mjs`): where location and compass go. The compass shows only when the map is rotated. Options: A a stack
+  above the bar, B location in the bar, C location in the search bar.
 - Local run: `python3 -m http.server 8000` in the repo root, then open
   http://localhost:8000.
