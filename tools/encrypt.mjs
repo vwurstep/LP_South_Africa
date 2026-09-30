@@ -7,7 +7,7 @@ import { gzipSync } from 'node:zlib';
 
 const root = new URL('..', import.meta.url);
 const pass = (process.env.GUIDE_PASSPHRASE ||
-  readFileSync(new URL('data/private/passphrase.txt', root), 'utf8')).trim();
+  readFileSync(new URL('data/private/passphrase.txt', root), 'utf8')).trim().toLowerCase();  // app lowercases too
 const plain = gzipSync(readFileSync(new URL('data/private/guide.json', root)));
 const ITER = 250000;
 const salt = crypto.getRandomValues(new Uint8Array(16));

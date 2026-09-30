@@ -55,16 +55,19 @@ async function encryptJSON(obj, passphrase) {
 }
 
 // ---- guide -----------------------------------------------------------------
+// case/space-insensitive, so "Springbok " works as well as "springbok"
+const normPass = (s) => (s || '').trim().toLowerCase();
 export function savedPassphrase() { return localStorage.getItem(PASS_KEY); }
 export function forgetPassphrase() { localStorage.removeItem(PASS_KEY); }
 
 /** Load the guide. Throws 'bad-passphrase' if it cannot be decrypted. */
 export async function loadGuide(passphrase = savedPassphrase(), url = 'data/guide.enc.json') {
   if (!passphrase) throw new Error('no-passphrase');
-  const enc = await (await fetch(url)).json();
+  let enc;
+  try { enc = await (await fetch(url)).json(); } catch { throw new Error('load-failed'); }
   let guide;
-  try { guide = await decryptJSON(enc, passphrase); } catch { throw new Error('bad-passphrase'); }
-  localStorage.setItem(PASS_KEY, passphrase);
+  try { guide = await decryptJSON(enc, normPass(passphrase)); } catch { throw new Error('bad-passphrase'); }
+  localStorage.setItem(PASS_KEY, normPass(passphrase));
   guide.sectionById = Object.fromEntries(guide.sections.map((s) => [s.id, s]));
   guide.chapterById = Object.fromEntries((guide.meta.chapters || []).map((c) => [c.id, c]));
   for (const p of guide.places) p.country = guide.chapterById[p.chapter]?.country;
@@ -144,7 +147,8 @@ export async function sync() {
     if (res.ok) {
       const file = await res.json();
       sha = file.sha;
-      importUserData(await decryptJSON(JSON.parse(atob(file.content.replace(/\n/g, ''))), pass));
+      try { importUserData(await decryptJSON(JSON.parse(atob(file.content.replace(/\n/g, ''))), pass)); }
+      catch { /* encrypted with an older passphrase: this device's copy replaces it */ }
     } else if (res.status !== 404) throw new Error(`GitHub ${res.status}`);
     const enc = await encryptJSON(exportUserData(), pass);
     const put = await gh(s, 'PUT', { message: 'Sync user data', branch: s.branch, sha,

@@ -12,7 +12,19 @@ let showShapes = localStorage.getItem('lp.shapes') !== 'off';
 // ---- unlock ------------------------------------------------------------------
 async function start() {
   try { guide = await data.loadGuide(); boot(); }
-  catch (e) { showUnlock(e.message === 'bad-passphrase'); }
+  catch (e) {
+    // only ask for the passphrase if it's missing or really wrong — not when loading failed
+    if (e.message === 'load-failed' && data.savedPassphrase()) return showLoadError();
+    showUnlock(e.message === 'bad-passphrase');
+  }
+}
+
+function showLoadError() {
+  const box = document.createElement('div');
+  box.id = 'load-error';
+  box.innerHTML = '<p>Couldn’t load the guide — no connection?</p><button class="primary">Retry</button>';
+  box.querySelector('button').onclick = () => { box.remove(); start(); };
+  document.body.appendChild(box);
 }
 
 function showUnlock(wrong) {
@@ -21,7 +33,7 @@ function showUnlock(wrong) {
   dlg.showModal();
   $('#unlock form').onsubmit = async (e) => {
     e.preventDefault();
-    try { guide = await data.loadGuide($('#passphrase').value.trim()); dlg.close(); boot(); }
+    try { guide = await data.loadGuide($('#passphrase').value); dlg.close(); boot(); }
     catch (err) { $('#unlock-error').hidden = false; $('#unlock-error').textContent = err.message === 'bad-passphrase' ? 'Wrong passphrase.' : 'Could not load the guide (offline on first start?).'; }
   };
 }

@@ -8,7 +8,7 @@ import { webcrypto as crypto } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 
 const root = new URL('..', import.meta.url);
-const pass = (process.env.GUIDE_PASSPHRASE || readFileSync(new URL('data/private/passphrase.txt', root), 'utf8')).trim();
+const pass = (process.env.GUIDE_PASSPHRASE || readFileSync(new URL('data/private/passphrase.txt', root), 'utf8')).trim().toLowerCase();  // app lowercases too
 const arg = process.argv[2];
 const raw = arg === '--userdata'
   ? Buffer.from(execSync('gh api "repos/vwurstep/LP_South_Africa/contents/user.enc.json?ref=userdata" --jq .content').toString(), 'base64').toString()

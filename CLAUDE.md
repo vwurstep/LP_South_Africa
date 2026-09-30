@@ -52,7 +52,12 @@ point within 150 km, so a park's gate dot gets the park outline.
   site is public even when the repo is private. The pipeline writes plaintext to
   `data/private/` (gitignored) and publishes only `data/guide.enc.json`, which is
   AES-GCM encrypted with a key derived via PBKDF2 from a passphrase. The app asks for
-  the passphrase once and stores it on the device. The ebook itself (`*.epub`) and the
+  the passphrase once and stores it on the device. On 2026-09-30 Phil chose a short
+  passphrase (a single word, in `data/private/passphrase.txt`). It is compared
+  case-insensitively: the app and the tools lowercase it. It only needs to keep the text
+  from being publicly readable or indexed. Old versions in git history stay encrypted
+  with the previous long passphrase. The app asks for the passphrase only when it is
+  missing or wrong. A failed download shows "Retry" instead. The ebook itself (`*.epub`) and the
   unpacked `book/` folder are gitignored too.
 - **Map uses MapLibre GL + OpenFreeMap vector tiles** (free, no API key, bulk download
   allowed). `lib/maplibre-gl.*` is vendored so the app shell works offline. The service

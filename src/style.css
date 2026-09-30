@@ -128,3 +128,6 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 .fp-opts .chip { box-shadow: none; }
 .fp-opts .chip em { font-style: normal; font-weight: 400; opacity: .75; font-size: 12px; }
 .fp-done { margin-top: 12px; width: 100%; }
+
+#load-error { position: fixed; inset: 40% 24px auto; z-index: 5; background: var(--bg); color: var(--fg); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); text-align: center; }
+#load-error button { margin-top: 6px; }
