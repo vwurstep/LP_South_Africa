@@ -49,11 +49,12 @@ export function buildFacets(places) {
   ];
 }
 
-/** Saved state: { off: {facetId: [optionIds switched off]}, favOnly }. Storing what is OFF
+/** Saved state: { off: {facetId: [optionIds switched off]}, favOnly, routesOnly }.
+    favOnly / routesOnly are the quick switches in the floating bar (Saved, Routes). Storing what is OFF
     means options that appear later (a new friend, a new category) start switched on. */
 export function loadState() {
-  try { return { off: {}, favOnly: false, ...JSON.parse(localStorage.getItem(KEY)) }; }
-  catch { return { off: {}, favOnly: false }; }
+  try { return { off: {}, favOnly: false, routesOnly: false, ...JSON.parse(localStorage.getItem(KEY)) }; }
+  catch { return { off: {}, favOnly: false, routesOnly: false }; }
 }
 export function saveState(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
 
@@ -66,13 +67,14 @@ export function setOn(st, facet, opt, on) {
 export function setAll(st, facets, on, facetId = null) {
   for (const f of facets) if (!facetId || f.id === facetId) st.off[f.id] = on ? [] : f.options.map((o) => o.id);
 }
-export const activeCount = (st) => Object.values(st.off).reduce((n, a) => n + a.length, 0) + (st.favOnly ? 1 : 0);
+export const activeCount = (st) => Object.values(st.off).reduce((n, a) => n + a.length, 0) + (st.favOnly ? 1 : 0) + (st.routesOnly ? 1 : 0);
 
 /** Predicate for one place under the current state. */
 export function matcher(st, isFav) {
   return (p) => {
     if (st.favOnly && !isFav(p.id)) return false;
     if (!sourcesOf(p).some((s) => isOn(st, 'source', s))) return false;
+    if (st.routesOnly) return kindsOf(p).includes('routes');  // quick switch: only the lines
     return kindsOf(p).some((k) => isOn(st, 'kind', k) && (k !== 'places' || p.user || isOn(st, 'type', p.category)));
   };
 }

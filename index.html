@@ -18,18 +18,28 @@
   <div id="map"></div>
 
   <header id="top">
-    <div class="searchbar">
+    <div class="searchbar glass">
       <input id="search" type="search" placeholder="Search places…" autocomplete="off">
       <button id="btn-menu" class="icon" aria-label="Menu">☰</button>
     </div>
     <ul id="results" hidden></ul>
-    <div id="filterbar">
-      <button id="btn-filter" class="chip" style="--c:#1971c2">⚲ Filter</button>
-      <button id="shown-count" title="Zoom to what's shown"></button>
-    </div>
   </header>
 
-  <button id="btn-add" class="fab" aria-label="Add place">＋</button>
+  <!-- floating glass bar: filter (with count), favourites only, routes only, add -->
+  <nav id="dock" class="glass" aria-label="Map controls">
+    <button id="btn-filter" aria-label="Filter"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>Filter <span id="shown-count" class="cnt"></span></button>
+    <span class="sep"></span>
+    <button id="btn-saved" aria-label="Show only my favourites"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2.5 14.9 8.6 21.5 9.3 16.6 13.8 18 20.3 12 17 6 20.3 7.4 13.8 2.5 9.3 9.1 8.6"/></svg></button>
+    <button id="btn-routes" aria-label="Show only routes"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h7"/></svg></button>
+    <button id="btn-add" class="add" aria-label="Add a place"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  </nav>
+
+  <!-- compass (only when the map is turned) + my location -->
+  <div id="side" class="glass">
+    <button id="btn-north" aria-label="Face north" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g class="needle"><polygon points="12 3 15 12 9 12" fill="#e03131"/><polygon points="12 21 15 12 9 12" fill="currentColor" opacity=".45"/></g></svg></button>
+    <span class="sep" id="side-sep" hidden></span>
+    <button id="btn-locate" aria-label="My location"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></button>
+  </div>
   <button id="update-banner" hidden>↻ Update available — tap</button>
 
   <section id="sheet" hidden>
@@ -76,6 +86,11 @@
 
   <dialog id="menu">
     <h3>Menu</h3>
+    <h4>Appearance</h4>
+    <div class="seg" id="appearance" role="radiogroup" aria-label="Appearance">
+      <button data-mode="auto" role="radio">Auto</button><button data-mode="day" role="radio">Day</button><button data-mode="night" role="radio">Night</button>
+    </div>
+    <p id="appearance-note" class="muted small"></p>
     <button data-act="offline">⬇ Save visible map area offline</button>
     <p id="offline-progress" class="muted small"></p>
     <button data-act="shapes">Hide areas &amp; routes</button>

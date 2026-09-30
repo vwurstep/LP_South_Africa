@@ -18,6 +18,10 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     if (act === 'close') close();
     if (act === 'expand') el.classList.toggle('full');
     if (act === 'fav') { setAnnotation(current.id, { fav: !annotation(current.id).fav }); renderHead(); onChange(); }
+    if (act === 'note') {
+      const t = $('textarea.note'); if (!t) return;
+      t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.focus({ preventScroll: true });
+    }
     if (act === 'edit') onEditUser(current);
     if (act === 'more') {
       const card = e.target.closest('.mention'), m = current.mentions[+card.dataset.i];
@@ -75,14 +79,25 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
         ${p.recs?.some((r) => r.type === 'web') ? '<span class="badge web">Road trip</span>' : ''}
         ${rating}
         <span class="spacer"></span>
-        <button data-act="fav" class="icon ${fav ? 'on' : ''}" aria-label="Favourite">${fav ? '★' : '☆'}</button>
         <button data-act="expand" class="icon" aria-label="Expand">⤢</button>
         <button data-act="close" class="icon" aria-label="Close">✕</button>
       </div>
       <h2>${esc(p.name)}</h2>
       <div class="meta">${[esc([p.subcategory, [p.locality, p.area].find((x) => x && x !== p.name)].filter(Boolean).join(' · ')), `<a href="${gmaps}" target="_blank" rel="noopener">Google Maps ↗</a>`].filter(Boolean).join(' · ')}
         ${p.geo?.confidence === 'low' && (p.kind || 'point') === 'point' ? ' · <span class="warn" title="Approximate location">≈ location</span>' : ''}
-        ${p.user ? ' · <a href="#" data-act="edit">Edit</a>' : ''}</div>`;
+        ${p.user ? ' · <a href="#" data-act="edit">Edit</a>' : ''}</div>
+      <div class="actions">
+        <a class="primary" href="${directionsUrl(p)}" target="_blank" rel="noopener">↗ Directions</a>
+        <button data-act="fav" class="${fav ? 'on' : ''}" aria-pressed="${!!fav}">${fav ? '★ Saved' : '☆ Save'}</button>
+        <button data-act="note">✎ Note</button>
+      </div>`;
+  }
+
+  // Google Maps navigation; places whose position is only a guess go by name instead
+  function directionsUrl(p) {
+    const dest = !p.user && p.geo?.confidence === 'low' && (p.kind || 'point') === 'point'
+      ? [p.name, p.locality, p.country].filter(Boolean).join(', ') : `${p.lat},${p.lng}`;
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
   }
 
   function crumbs(s) {
@@ -138,9 +153,14 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     current = place; others = alsoHere;
     renderHead(); renderBody();
     el.hidden = false;
+    document.body.classList.add('sheet-open');  // floating controls step aside
     requestAnimationFrame(() => el.classList.add('open'));
   }
-  function close() { el.classList.remove('open', 'full'); el.hidden = true; current = null; onClose(); }
+  function close() {
+    el.classList.remove('open', 'full'); el.hidden = true; current = null;
+    document.body.classList.remove('sheet-open');
+    onClose();
+  }
 
   return { open, close, get current() { return current; }, height: () => (el.hidden ? 0 : el.offsetHeight) };
 }

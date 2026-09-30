@@ -2,68 +2,120 @@
    data.js but nothing about panels or storage. */
 import { CATEGORIES } from './data.js';
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+export const STYLES = {
+  day: 'https://tiles.openfreemap.org/styles/liberty',
+  night: 'https://tiles.openfreemap.org/styles/dark',  // same tiles, fonts and sprites as liberty
+};
 const CAPE_TOWN = { center: [18.45, -33.95], zoom: 11 };
+const ICON_ZOOM = 12.5;  // below: small dots; from here: discs with a category icon
+const EMOJI = { sight: '🏛️', activity: '🥾', eat: '🍴', drink: '☕', sleep: '🛏️', shop: '🛍️', area: '🗺️', info: 'ℹ️', transport: '🚌', mine: '❤️' };
 
-export function createMap(el, { onPlaceClick, onLongPress }) {
+/** Category pin images (disc + icon + coloured ring), drawn once per theme. */
+function addPinImages(map, night) {
+  for (const [cat, { color }] of Object.entries(CATEGORIES)) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d');
+    x.beginPath(); x.arc(32, 32, 28, 0, Math.PI * 2);
+    x.fillStyle = night ? '#1d242c' : '#fff'; x.fill();
+    x.lineWidth = 6; x.strokeStyle = color; x.stroke();
+    x.font = '28px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(EMOJI[cat] || '•', 32, 34);
+    const id = 'pin-' + cat;
+    if (map.hasImage(id)) map.removeImage(id);
+    map.addImage(id, x.getImageData(0, 0, 64, 64), { pixelRatio: 2 });
+  }
+}
+
+export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, theme = 'day' }) {
   let view = CAPE_TOWN;
   try { view = JSON.parse(localStorage.getItem('lp.view')) || CAPE_TOWN; } catch {}
-  const map = new maplibregl.Map({
-    container: el, style: STYLE_URL, ...view, attributionControl: { compact: true },
-  });
+  let current = theme;
+  const map = new maplibregl.Map({ container: el, style: STYLES[current], ...view, attributionControl: false });
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
   map.on('moveend', () => {
     try { localStorage.setItem('lp.view', JSON.stringify({ center: map.getCenter().toArray(), zoom: map.getZoom() })); } catch {}
   });
-  map.addControl(new maplibregl.NavigationControl({ showZoom: false, visualizePitch: false }), 'top-right');
+  map.on('rotate', () => onView?.({ bearing: map.getBearing(), pitch: map.getPitch() }));
+  map.on('pitch', () => onView?.({ bearing: map.getBearing(), pitch: map.getPitch() }));
+
+  // location: MapLibre's control does the work (blue dot, following); its own button is hidden
+  // and the app shows its own button
   const geolocate = new maplibregl.GeolocateControl({
     positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, showAccuracyCircle: true,
   });
   map.addControl(geolocate, 'top-right');
+  let lastFix = null;
+  geolocate.on('geolocate', (e) => { lastFix = { lat: e.coords.latitude, lng: e.coords.longitude }; onLocate?.('fix', lastFix); });
+  geolocate.on('trackuserlocationstart', () => onLocate?.('following'));
+  geolocate.on('trackuserlocationend', () => onLocate?.('idle'));
+  geolocate.on('userlocationlostfocus', () => onLocate?.('idle'));
+  geolocate.on('userlocationfocus', () => onLocate?.('following'));
+  geolocate.on('error', () => onLocate?.('error'));
+
   const empty = { type: 'FeatureCollection', features: [] };
   const isPoly = ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false];
+  const isPoint = ['==', ['get', 'kind'], 'point'];
 
-  const ready = new Promise((res) => map.on('load', res));
-  ready.then(() => {
+  // our sources/layers live inside the style, so they are (re-)added on every style load
+  function addLayers() {
+    const night = current === 'night';
+    const halo = night ? '#0d1117' : '#fff';
+    addPinImages(map, night);
     map.addSource('shapes', { type: 'geojson', data: empty });
     map.addSource('places', { type: 'geojson', data: empty });
     // areas: faint fill + dashed outline; routes: solid line
     map.addLayer({ id: 'shape-fill', type: 'fill', source: 'shapes', filter: isPoly,
-      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['get', 'sel'], 0.22, 0.06] } });
+      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['get', 'sel'], night ? 0.3 : 0.22, night ? 0.1 : 0.06] } });
     map.addLayer({ id: 'shape-outline', type: 'line', source: 'shapes', filter: isPoly,
       paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 3, 1.5], 'line-dasharray': [3, 2], 'line-opacity': 0.8 } });
     map.addLayer({ id: 'route-line', type: 'line', source: 'shapes', filter: ['!', isPoly],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 7, 4.5], 'line-opacity': 0.75 } });
-    map.addLayer({ id: 'area-label', type: 'symbol', source: 'places', minzoom: 10.5,
-      filter: ['!=', ['get', 'kind'], 'point'],
+      paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 7, 4.5], 'line-opacity': night ? 0.9 : 0.75 } });
+    map.addLayer({ id: 'area-label', type: 'symbol', source: 'places', minzoom: 10.5, filter: ['!', isPoint],
       layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 13, 'text-max-width': 8 },
-      paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#fff', 'text-halo-width': 1.8 } });
+      paint: { 'text-color': ['get', 'color'], 'text-halo-color': halo, 'text-halo-width': 1.8 } });
     map.addLayer({ id: 'selected', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
-      paint: { 'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#212529', 'circle-stroke-width': 3 } });
-    map.addLayer({
-      id: 'places-dot', type: 'circle', source: 'places', filter: ['==', ['get', 'kind'], 'point'],
+      paint: { 'circle-radius': ['step', ['zoom'], 16, ICON_ZOOM, 21], 'circle-color': 'rgba(0,0,0,0)',
+               'circle-stroke-color': night ? '#ffb224' : '#212529', 'circle-stroke-width': 3 } });
+    // zoomed out: small dots
+    map.addLayer({ id: 'places-dot', type: 'circle', source: 'places', filter: isPoint, maxzoom: ICON_ZOOM,
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, ['case', ['get', 'top'], 6, 4], 15, ['case', ['get', 'top'], 11, 8]],
-        'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', ['get', 'rec'], '#212529', '#ffffff'],
-        'circle-stroke-width': ['case', ['get', 'fav'], 3, ['get', 'rec'], 2.5, 1.5],
-      },
-    });
-    map.addLayer({
-      id: 'places-label', type: 'symbol', source: 'places', minzoom: 14, filter: ['==', ['get', 'kind'], 'point'],
-      layout: {
-        'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
-        'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true,
-      },
-      paint: { 'text-color': '#212529', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
-    });
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, ['case', ['get', 'top'], 4, 2.5], 12, ['case', ['get', 'top'], 7, 5]],
+        'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', ['get', 'rec'], night ? '#e9eef3' : '#212529', halo],
+        'circle-stroke-width': ['case', ['get', 'fav'], 2.5, ['get', 'rec'], 2, 1],
+      } });
+    // zoomed in: ring for favourites / friend tips, then the icon disc on top
+    map.addLayer({ id: 'places-ring', type: 'circle', source: 'places', minzoom: ICON_ZOOM,
+      filter: ['all', isPoint, ['any', ['get', 'fav'], ['get', 'rec']]],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], ICON_ZOOM, 14, 16, 19], 'circle-color': 'rgba(0,0,0,0)',
+               'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', night ? '#e9eef3' : '#212529'], 'circle-stroke-width': 3 } });
+    map.addLayer({ id: 'places-icon', type: 'symbol', source: 'places', minzoom: ICON_ZOOM, filter: isPoint,
+      layout: { 'icon-image': ['concat', 'pin-', ['get', 'cat']], 'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_ZOOM, 0.8, 16, 1.1],
+                'icon-allow-overlap': true, 'icon-ignore-placement': true,
+                'symbol-sort-key': ['case', ['get', 'top'], 0, 1] } });
+    map.addLayer({ id: 'places-label', type: 'symbol', source: 'places', minzoom: 14, filter: isPoint,
+      layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
+                'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true },
+      paint: { 'text-color': night ? '#e9eef3' : '#212529', 'text-halo-color': halo, 'text-halo-width': 1.5 } });
+    if (!shapesOn) ['shape-fill', 'shape-outline', 'route-line', 'area-label'].forEach((l) => map.setLayoutProperty(l, 'visibility', 'none'));
+    map.setFilter('selected', ['==', ['get', 'id'], selectedId || '']);
+    render();
+  }
+  let shapesOn = true;
+  const ready = new Promise((res) => map.once('load', res));
+  map.on('style.load', addLayers);
+  ready.then(() => {
     map.on('click', onClick);
+    // start with the credit collapsed to the (i) button; tap it to read it
+    el.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
   });
 
   // dots win over routes, routes over areas; overlapping areas -> smallest first
   const box = (p, r) => [[p.x - r, p.y - r], [p.x + r, p.y + r]];
   function onClick(e) {
-    const dot = map.queryRenderedFeatures(box(e.point, 10), { layers: ['places-dot', 'area-label'] })[0];
+    const dot = map.queryRenderedFeatures(box(e.point, 12), { layers: ['places-icon', 'places-dot', 'area-label'] })[0];
     if (dot) return onPlaceClick(dot.properties.id, []);
     const route = map.queryRenderedFeatures(box(e.point, 8), { layers: ['route-line'] })[0];
     if (route) return onPlaceClick(route.properties.id, []);
@@ -72,8 +124,10 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
     const ids = [...new Set(areas.map((f) => f.properties.id))];
     if (ids.length) onPlaceClick(ids[0], ids.slice(1));
   }
-  map.on('mouseenter', 'places-dot', () => (map.getCanvas().style.cursor = 'pointer'));
-  map.on('mouseleave', 'places-dot', () => (map.getCanvas().style.cursor = ''));
+  for (const l of ['places-dot', 'places-icon']) {
+    map.on('mouseenter', l, () => (map.getCanvas().style.cursor = 'pointer'));
+    map.on('mouseleave', l, () => (map.getCanvas().style.cursor = ''));
+  }
 
   // long-press (touch) and right-click (desktop) to add a place
   map.on('contextmenu', (e) => onLongPress(e.lngLat));
@@ -97,16 +151,18 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
     return (x1 - x0) * (y1 - y0);
   }
   function render() {
+    const places = map.getSource('places'), shapes = map.getSource('shapes');
+    if (!places || !shapes) return;  // style still loading; addLayers renders when done
     const color = (p) => CATEGORIES[p.category]?.color || '#000';
-    map.getSource('places').setData({
+    places.setData({
       type: 'FeatureCollection',
       features: lastPlaces.map((p) => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         properties: { id: p.id, name: p.name, kind: p.kind || 'point', top: !!p.top, fav: lastFavs.has(p.id),
-          rec: !!(p.recs?.length), color: color(p) },
+          rec: !!(p.recs?.length), color: color(p), cat: CATEGORIES[p.category] ? p.category : 'info' },
       })),
     });
-    map.getSource('shapes').setData({
+    shapes.setData({
       type: 'FeatureCollection',
       features: lastPlaces.filter((p) => p.shape).map((p) => ({
         type: 'Feature', geometry: p.shape,
@@ -121,11 +177,18 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
     setPlaces(places, favs) { lastPlaces = places; lastFavs = favs; ready.then(render); },
     select(id) {
       selectedId = id;
-      ready.then(() => { map.setFilter('selected', ['==', ['get', 'id'], id || '']); render(); });
+      ready.then(() => { if (map.getLayer('selected')) map.setFilter('selected', ['==', ['get', 'id'], id || '']); render(); });
     },
     showShapes(on) {
+      shapesOn = on;
       ready.then(() => ['shape-fill', 'shape-outline', 'route-line', 'area-label']
-        .forEach((l) => map.setLayoutProperty(l, 'visibility', on ? 'visible' : 'none')));
+        .forEach((l) => map.getLayer(l) && map.setLayoutProperty(l, 'visibility', on ? 'visible' : 'none')));
+    },
+    /** 'day' | 'night': swaps the base map; our layers are re-added on style.load */
+    setTheme(t) {
+      if (t === current) return;
+      current = t;
+      map.setStyle(STYLES[t], { diff: false });
     },
     flyTo(p, offsetY = 0) {
       if (p.shape && p.kind !== 'point') {
@@ -140,6 +203,8 @@ export function createMap(el, { onPlaceClick, onLongPress }) {
       map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 14 });
     },
     locate() { geolocate.trigger(); },
+    resetNorth() { map.easeTo({ bearing: 0, pitch: 0 }); },
+    lastFix: () => lastFix,
     center() { const c = map.getCenter(); return { lat: c.lat, lng: c.lng }; },
     bounds() { return map.getBounds(); },
   };
@@ -161,7 +226,8 @@ export function countTiles(bounds, maxZoom = 14) {
 
 /** Fetch every tile in bounds up to maxZoom (the service worker stores them). */
 export async function downloadTiles(bounds, maxZoom, onProgress) {
-  const style = await (await fetch(STYLE_URL, { cache: 'reload' })).json();
+  const style = await (await fetch(STYLES.day, { cache: 'reload' })).json();
+  await fetch(STYLES.night, { cache: 'reload' });  // night map: same tiles/fonts/sprites
   const tilejson = await (await fetch(style.sources.openmaptiles.url, { cache: 'reload' })).json();
   const tpl = tilejson.tiles[0];
   const urls = [];

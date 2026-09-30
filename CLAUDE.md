@@ -41,6 +41,22 @@ point within 150 km, so a park's gate dot gets the park outline.
     No DOM or map code goes in it.
   - `src/map.js` handles the map, `src/sheet.js` the reading panel, and `src/app.js` the
     wiring and UI.
+  - **UI (built 2026-09-30 from design rounds 2 and 3):**
+    - The top holds only a frosted search bar.
+    - A floating glass bar at the bottom (`#dock`) has Filter (with the count), Saved
+      (favourites only), Routes (routes only) and ＋.
+    - A slim stack on the right above it (`#side`) has the compass, shown only when the
+      map is rotated, and my location, blue while following. Both hide while the place
+      panel is open.
+    - Pins are discs with a category emoji from zoom 12.5 and dots below that. Favourites
+      get a gold ring and friend tips a dark ring.
+    - The panel has a Directions / Save / Note row. Directions goes to coordinates, or by
+      name when the position is only a guess.
+  - **Night mode** (`src/theme.js`): Auto / Day / Night in the menu. Auto uses sunset and
+    sunrise at the last GPS fix or map centre, computed offline. Night sets
+    `<html data-theme="night">` (CSS tokens) and swaps the map to OpenFreeMap "dark",
+    which uses the same tiles, fonts and sprites, so offline saves cover both. Our map
+    layers are re-added on every `style.load`.
   - `src/filters.js` is the filter model: independent facets "Show" (dots / areas /
     routes), "Type" (applies to dots only) and "Source" (Lonely Planet / each friend /
     road trips / my places). A place is visible if it matches every facet. The options

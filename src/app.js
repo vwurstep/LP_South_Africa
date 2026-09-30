@@ -3,11 +3,13 @@ import * as data from './data.js';
 import { createMap, countTiles, downloadTiles } from './map.js';
 import { createSheet } from './sheet.js';
 import * as F from './filters.js';
+import * as T from './theme.js';
 
 const $ = (s) => document.querySelector(s);
 let guide, mapView, sheet;
 let fstate = F.loadState(), facets = [];
 let showShapes = localStorage.getItem('lp.shapes') !== 'off';
+let appearance = T.loadMode(), theme = 'day';
 
 // ---- unlock ------------------------------------------------------------------
 async function start() {
@@ -43,9 +45,17 @@ function allPlaces() { return [...guide.places, ...data.userPlaces()]; }
 function placeById(id) { return guide.placeById[id] || data.userPlaces().find((p) => p.id === id); }
 
 function boot() {
+  theme = T.resolve(appearance, sunPosition());
+  applyTheme();
   mapView = createMap($('#map'), {
     onPlaceClick: (id, others) => openPlace(id, false, others),
     onLongPress: (ll) => openAdd({ lat: ll.lat, lng: ll.lng }),
+    onView: ({ bearing, pitch }) => updateCompass(bearing, pitch),
+    onLocate: (state, fix) => {
+      if (state === 'fix') { try { localStorage.setItem('lp.lastpos', JSON.stringify(fix)); } catch {} return; }
+      $('#btn-locate').classList.toggle('following', state === 'following');  // blue while the map follows you
+    },
+    theme,
   });
   sheet = createSheet($('#sheet'), {
     guide,
@@ -58,11 +68,58 @@ function boot() {
   mapView.showShapes(showShapes);
   window.__lp = { mapView, guide };  // handle for tests & design mockups
   setupFilters();
+  setupDock();
   buildChips();
   refresh();
   setupSearch();
   setupMenu();
+  setupAppearance();
   setupSync();
+}
+
+// ---- floating bar + compass/location ------------------------------------------------
+function setupDock() {
+  $('#btn-saved').onclick = () => { fstate.favOnly = !fstate.favOnly; F.saveState(fstate); refresh(); buildChips(); };
+  $('#btn-routes').onclick = () => { fstate.routesOnly = !fstate.routesOnly; F.saveState(fstate); refresh(); buildChips(); };
+  $('#btn-locate').onclick = () => mapView.locate();
+  $('#btn-north').onclick = () => mapView.resetNorth();
+}
+function updateCompass(bearing, pitch) {
+  const turned = Math.abs(bearing) > 1 || pitch > 1;  // compass only when the map isn't north-up
+  $('#btn-north').hidden = !turned; $('#side-sep').hidden = !turned;
+  $('#btn-north .needle').style.transform = `rotate(${-bearing}deg)`;
+}
+
+// ---- day / night ------------------------------------------------------------------------
+function sunPosition() {  // last GPS fix, else the last map view, else Cape Town
+  try { const f = JSON.parse(localStorage.getItem('lp.lastpos')); if (f) return f; } catch {}
+  try { const v = JSON.parse(localStorage.getItem('lp.view')); if (v) return { lng: v.center[0], lat: v.center[1] }; } catch {}
+  return { lat: -33.92, lng: 18.42 };
+}
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', theme === 'night' ? '#151a21' : '#ffffff');
+  mapView?.setTheme(theme);
+}
+function updateTheme() {
+  const t = T.resolve(appearance, sunPosition());
+  if (t !== theme) { theme = t; applyTheme(); }
+  for (const b of document.querySelectorAll('#appearance button')) {
+    b.classList.toggle('on', b.dataset.mode === appearance); b.setAttribute('aria-checked', b.dataset.mode === appearance);
+  }
+  const pos = sunPosition(), sun = T.sunTimes(new Date(), pos.lat, pos.lng);
+  $('#appearance-note').textContent = appearance === 'auto' && sun
+    ? `Auto: night from sunset (${T.fmtTime(sun.sunset)}) until sunrise (${T.fmtTime(sun.sunrise)}) where you are.`
+    : appearance === 'auto' ? 'Auto follows sunset and sunrise where you are.' : `Always ${appearance} until you choose Auto again.`;
+}
+function setupAppearance() {
+  $('#appearance').onclick = (e) => {
+    const b = e.target.closest('[data-mode]'); if (!b) return;
+    appearance = b.dataset.mode; T.saveMode(appearance); updateTheme();
+  };
+  updateTheme();
+  setInterval(updateTheme, 5 * 60 * 1000);  // catches sunset/sunrise while the app is open
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && updateTheme());
 }
 
 function visible() {
@@ -94,16 +151,22 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 function buildChips() {  // (name kept: called after any data change) — refresh counts + labels
   facets = F.buildFacets(allPlaces());
   const n = visible().length, total = allPlaces().length, filtered = F.activeCount(fstate) > 0;
-  $('#btn-filter').classList.toggle('on', filtered);
-  $('#shown-count').textContent = filtered ? `${n.toLocaleString()} of ${total.toLocaleString()} shown ⤢` : `All ${total.toLocaleString()} shown`;
+  const panelFiltered = Object.values(fstate.off).some((a) => a.length);
+  $('#btn-filter').classList.toggle('on', panelFiltered);
+  $('#btn-saved').classList.toggle('on', !!fstate.favOnly);
+  $('#btn-routes').classList.toggle('on', !!fstate.routesOnly);
+  $('#shown-count').textContent = n.toLocaleString();
+  $('#btn-filter').setAttribute('aria-label', filtered ? `Filter: ${n} of ${total} shown` : `Filter: all ${total} shown`);
   if ($('#filters').open) renderFilterPanel();
 }
 function renderFilterPanel() {
   const opt = (f, o) => `<button class="chip ${F.isOn(fstate, f.id, o.id) ? 'on' : ''}" data-f="${f.id}" data-o="${esc(o.id)}" style="--c:${o.color}">`
     + `${esc(o.label)}${o.sub ? ` <em>${esc(o.sub)}</em>` : ''}<small>${o.n.toLocaleString()}</small></button>`;
   $('#filters .fp-body').innerHTML = `
-    <div class="fp-top"><strong>${visible().length.toLocaleString()} shown</strong><span class="spacer"></span>
+    <div class="fp-top"><strong>${visible().length.toLocaleString()} shown</strong>
+      <button class="link" data-fit="1">Show on map</button><span class="spacer"></span>
       <button data-all="1">Select all</button><button data-none="1">Deselect all</button></div>
+    ${fstate.routesOnly ? '<p class="muted small">“Routes” is on in the bar: only routes are shown.</p>' : ''}
     ${facets.map((f) => `<section>
       <div class="fp-head"><h4>${f.label}</h4>${f.note ? `<small class="muted">${f.note}</small>` : ''}<span class="spacer"></span>
         <button class="link" data-fall="${f.id}">All</button><span class="muted">·</span><button class="link" data-fnone="${f.id}">None</button></div>
@@ -114,11 +177,11 @@ function renderFilterPanel() {
 function setupFilters() {
   const dlg = $('#filters');
   $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); };
-  $('#shown-count').onclick = () => mapView.fitPlaces(visible());  // zoom to what's shown
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-done]')) return dlg.close();  // tap outside or Done
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.all || b.dataset.none) { F.setAll(fstate, facets, !!b.dataset.all); if (b.dataset.all) fstate.favOnly = false; }
+    if (b.dataset.fit) { dlg.close(); return mapView.fitPlaces(visible()); }  // zoom to what's shown
+    if (b.dataset.all || b.dataset.none) { F.setAll(fstate, facets, !!b.dataset.all); if (b.dataset.all) fstate.favOnly = fstate.routesOnly = false; }
     else if (b.dataset.fall || b.dataset.fnone) F.setAll(fstate, facets, !!b.dataset.fall, b.dataset.fall || b.dataset.fnone);
     else if (b.dataset.favonly) fstate.favOnly = !fstate.favOnly;
     else if (b.dataset.f) F.setOn(fstate, b.dataset.f, b.dataset.o, !F.isOn(fstate, b.dataset.f, b.dataset.o));
