@@ -68,8 +68,9 @@ point within 150 km, so a park's gate dot gets the park outline.
     - The page runs under the iOS status bar (`black-translucent`) with a faint top scrim.
       This status bar setting only takes effect when the app is re-added to the home
       screen. That leaves the known iOS gap at the bottom (window shifted up, not made
-      taller): `fitScreen()` in app.js measures it, sets `--app-extra`, and the map, dock,
-      side stack, sheet and filter panel extend into it. It only applies in standalone
+      taller): `fitScreen()` in app.js measures it, sets `--app-extra`, and the map, sheet and
+      filter panel extend into it. The floating bar and side stack stay where they are: Phil
+      wants the bar at its old height, not pushed down. It only applies in standalone
       portrait with safe-area-top > 0.
       Before that, iOS 26 tinted the band above the frosted search bar grey.
     - The panel has a Directions / Save / Note row. Directions goes to coordinates, or by
