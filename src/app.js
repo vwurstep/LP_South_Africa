@@ -160,23 +160,24 @@ function buildChips() {  // (name kept: called after any data change) — refres
   if ($('#filters').open) renderFilterPanel();
 }
 function renderFilterPanel() {
-  const opt = (f, o) => `<button class="chip ${F.isOn(fstate, f.id, o.id) ? 'on' : ''}" data-f="${f.id}" data-o="${esc(o.id)}" style="--c:${o.color}">`
+  const opt = (f, o) => `<button class="chip ${F.isOn(fstate, f.id, o.id) ? 'on' : ''}" data-f="${f.id}" data-o="${esc(o.id)}" style="--c:${o.color}"`
+    + ` aria-pressed="${F.isOn(fstate, f.id, o.id)}">${o.emoji ? `<span class="ce" aria-hidden="true">${o.emoji}</span>` : ''}`
     + `${esc(o.label)}${o.sub ? ` <em>${esc(o.sub)}</em>` : ''}<small>${o.n.toLocaleString()}</small></button>`;
   $('#filters .fp-body').innerHTML = `
-    <div class="fp-top"><strong>${visible().length.toLocaleString()} shown</strong>
-      <button class="link" data-fit="1">Show on map</button><span class="spacer"></span>
-      <button data-all="1">Select all</button><button data-none="1">Deselect all</button></div>
+    <div class="fp-all"><button data-all="1">Select all</button><button data-none="1">Deselect all</button></div>
+    <div class="fp-top"><strong>${visible().length.toLocaleString()} shown</strong><span class="spacer"></span>
+      <button class="link" data-fit="1">Show on map ⤢</button></div>
     ${fstate.routesOnly ? '<p class="muted small">“Routes” is on in the bar: only routes are shown.</p>' : ''}
     ${facets.map((f) => `<section>
       <div class="fp-head"><h4>${f.label}</h4>${f.note ? `<small class="muted">${f.note}</small>` : ''}<span class="spacer"></span>
         <button class="link" data-fall="${f.id}">All</button><span class="muted">·</span><button class="link" data-fnone="${f.id}">None</button></div>
       <div class="fp-opts">${f.options.map((o) => opt(f, o)).join('')}</div></section>`).join('')}
     <section><div class="fp-head"><h4>Favourites</h4></div>
-      <div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005">★ Show only my favourites</button></div></section>`;
+      <div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005" aria-pressed="${!!fstate.favOnly}"><span class="ce" aria-hidden="true">⭐</span>Show only my favourites</button></div></section>`;
 }
 function setupFilters() {
   const dlg = $('#filters');
-  $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); };
+  $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); dlg.querySelector('.fp-body').focus?.(); document.activeElement?.blur(); };
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-done]')) return dlg.close();  // tap outside or Done
     const b = e.target.closest('button'); if (!b) return;

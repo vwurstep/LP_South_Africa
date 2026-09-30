@@ -3,17 +3,17 @@
    User data (own places, favourites, notes) = localStorage on this device, optionally
    synced (encrypted) to a GitHub branch so it survives phone loss and Claude can read it. */
 
-export const CATEGORIES = {
-  sight:     { label: 'Sights',    color: '#d9480f' },
-  activity:  { label: 'Do',        color: '#2f9e44' },
-  eat:       { label: 'Eat',       color: '#c2255c' },
-  drink:     { label: 'Drink',     color: '#7048e8' },
-  sleep:     { label: 'Sleep',     color: '#1971c2' },
-  shop:      { label: 'Shop',      color: '#e67700' },
-  area:      { label: 'Areas',     color: '#0c8599' },
-  info:      { label: 'Info',      color: '#495057' },
-  transport: { label: 'Transport', color: '#495057' },
-  mine:      { label: 'Mine',      color: '#f08c00' },
+export const CATEGORIES = {  // colour for pins/badges, emoji for pin icons and the filter menu
+  sight:     { label: 'Sights',    color: '#d9480f', emoji: '🏛️' },
+  activity:  { label: 'Do',        color: '#2f9e44', emoji: '🥾' },
+  eat:       { label: 'Eat',       color: '#c2255c', emoji: '🍴' },
+  drink:     { label: 'Drink',     color: '#7048e8', emoji: '☕' },
+  sleep:     { label: 'Sleep',     color: '#1971c2', emoji: '🛏️' },
+  shop:      { label: 'Shop',      color: '#e67700', emoji: '🛍️' },
+  area:      { label: 'Areas',     color: '#0c8599', emoji: '🗺️' },
+  info:      { label: 'Info',      color: '#495057', emoji: 'ℹ️' },
+  transport: { label: 'Transport', color: '#495057', emoji: '🚌' },
+  mine:      { label: 'Mine',      color: '#f08c00', emoji: '❤️' },
 };
 
 const PASS_KEY = 'lp.passphrase';

@@ -33,18 +33,18 @@ export function buildFacets(places) {
   const friends = Object.keys(srcs).filter((s) => s.startsWith('friend:')).sort();
   return [
     { id: 'kind', label: 'Show', options: [
-      { id: 'places', label: 'Places (dots)', color: '#495057', n: kinds.places || 0 },
-      { id: 'areas', label: 'Areas', color: CATEGORIES.area.color, n: kinds.areas || 0 },
-      { id: 'routes', label: 'Routes', color: '#2b8a3e', n: kinds.routes || 0 },
+      { id: 'places', label: 'Places', emoji: '📍', color: '#495057', n: kinds.places || 0 },
+      { id: 'areas', label: 'Areas', emoji: '🗺️', color: CATEGORIES.area.color, n: kinds.areas || 0 },
+      { id: 'routes', label: 'Routes', emoji: '🛣️', color: '#2b8a3e', n: kinds.routes || 0 },
     ] },
     { id: 'type', label: 'Type of place', note: 'applies to the dots',
       options: Object.keys(CATEGORIES).filter((c) => types[c])
-        .map((c) => ({ id: c, label: CATEGORIES[c].label, color: CATEGORIES[c].color, n: types[c] })) },
+        .map((c) => ({ id: c, label: CATEGORIES[c].label, emoji: CATEGORIES[c].emoji, color: CATEGORIES[c].color, n: types[c] })) },
     { id: 'source', label: 'Source', options: [
-      { id: 'lp', label: 'Lonely Planet', color: '#1971c2', n: srcs.lp || 0 },
-      ...friends.map((f) => ({ id: f, label: f.slice(7), sub: 'friend', color: '#212529', n: srcs[f] })),
-      ...(srcs.web ? [{ id: 'web', label: 'Road trips', sub: 'web research', color: '#2b8a3e', n: srcs.web }] : []),
-      { id: 'mine', label: 'My places', color: CATEGORIES.mine.color, n: srcs.mine || 0 },
+      { id: 'lp', label: 'Lonely Planet', emoji: '📘', color: '#1971c2', n: srcs.lp || 0 },
+      ...friends.map((f) => ({ id: f, label: f.slice(7), sub: 'friend', emoji: '💬', color: '#495057', n: srcs[f] })),
+      ...(srcs.web ? [{ id: 'web', label: 'Road trips', sub: 'web research', emoji: '🌐', color: '#2b8a3e', n: srcs.web }] : []),
+      { id: 'mine', label: 'My places', emoji: '❤️', color: CATEGORIES.mine.color, n: srcs.mine || 0 },
     ] },
   ];
 }

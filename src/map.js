@@ -8,22 +8,27 @@ export const STYLES = {
 };
 const CAPE_TOWN = { center: [18.45, -33.95], zoom: 11 };
 const ICON_ZOOM = 12.5;  // below: small dots; from here: discs with a category icon
-const EMOJI = { sight: '🏛️', activity: '🥾', eat: '🍴', drink: '☕', sleep: '🛏️', shop: '🛍️', area: '🗺️', info: 'ℹ️', transport: '🚌', mine: '❤️' };
 
-/** Category pin images (disc + icon + coloured ring), drawn once per theme. */
+/** Category pin images (disc + icon + coloured ring), drawn once per theme at the screen's
+    pixel density. The emoji is centred on its measured outline, not on the text line:
+    emoji fonts (Apple Color Emoji especially) sit off-centre with textBaseline 'middle'. */
 function addPinImages(map, night) {
+  const r = Math.min(3, Math.max(2, Math.round(window.devicePixelRatio || 2)));
+  const S = 32 * r;  // 32 css px
   for (const [cat, { color }] of Object.entries(CATEGORIES)) {
-    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const c = document.createElement('canvas'); c.width = c.height = S;
     const x = c.getContext('2d');
-    x.beginPath(); x.arc(32, 32, 28, 0, Math.PI * 2);
+    x.beginPath(); x.arc(S / 2, S / 2, S / 2 - 2 * r, 0, Math.PI * 2);
     x.fillStyle = night ? '#1d242c' : '#fff'; x.fill();
-    x.lineWidth = 6; x.strokeStyle = color; x.stroke();
-    x.font = '28px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText(EMOJI[cat] || '•', 32, 34);
+    x.lineWidth = 3 * r; x.strokeStyle = color; x.stroke();
+    x.font = `${14 * r}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    const e = CATEGORIES[cat].emoji || '•', m = x.measureText(e);
+    const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    x.fillText(e, (S - w) / 2 + m.actualBoundingBoxLeft, (S - h) / 2 + m.actualBoundingBoxAscent);
     const id = 'pin-' + cat;
     if (map.hasImage(id)) map.removeImage(id);
-    map.addImage(id, x.getImageData(0, 0, 64, 64), { pixelRatio: 2 });
+    map.addImage(id, x.getImageData(0, 0, S, S), { pixelRatio: r });
   }
 }
 
