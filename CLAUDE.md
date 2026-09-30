@@ -181,6 +181,10 @@ mentions.
   swap, pin restyling via `window.__lp.mapView.map`) and takes iPhone screenshots. The
   results go on a private comparison page (artifact "Guide Map Looks",
   https://claude.ai/artifact/AywtwCbNoYtz7RisD3SmHD). Round 1 (2026-09-30): A Refined,
-  B Brown sign, C Night drive, D Map first + bottom bar.
+  B Brown sign, C Night drive, D Map first + bottom bar. Round 2 (`tools/design/mock2.mjs`) uses
+  Phil's picks: the current liberty map; A's icon pins with names when zoomed in; A's frosted
+  search; a Directions/Save/Note row; auto night mode (sunset/sunrise) with a manual switch;
+  controls at the bottom (options: floating glass bar / search at bottom / corner buttons).
+  He found D's tab bar too old-fashioned.
 - Local run: `python3 -m http.server 8000` in the repo root, then open
   http://localhost:8000.

@@ -4,3 +4,4 @@ data/private/
 .DS_Store
 node_modules/
 __pycache__/
+tools/design/shots*/

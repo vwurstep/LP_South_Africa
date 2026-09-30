@@ -6,6 +6,7 @@
   color: var(--fg);
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* e.g. #menu button / dialog input set display:block */
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
 #map { position: fixed; inset: 0; }
 button { font: inherit; color: inherit; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
