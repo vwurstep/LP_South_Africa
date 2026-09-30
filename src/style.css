@@ -124,7 +124,9 @@ dialog .row { display: flex; gap: 8px; margin-top: 8px; }
 .fp-top strong { font-size: 16px; }
 .fp-head { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 6px; }
 .fp-head h4 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
-.fp-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.fp-opts { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+#filters section + section { margin-top: 4px; padding-top: 2px; border-top: 1px solid var(--line); }
+.fp-opts .chip { line-height: 1.25; }
 .fp-opts .chip { box-shadow: none; }
 .fp-opts .chip em { font-style: normal; font-weight: 400; opacity: .75; font-size: 12px; }
 .fp-done { margin-top: 12px; width: 100%; }

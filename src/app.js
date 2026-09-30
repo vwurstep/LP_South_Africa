@@ -56,6 +56,7 @@ function boot() {
     onChange: () => { refresh(); buildChips(); },
   });
   mapView.showShapes(showShapes);
+  window.__lp = { mapView, guide };  // handle for tests & design mockups
   setupFilters();
   buildChips();
   refresh();
@@ -107,7 +108,8 @@ function renderFilterPanel() {
       <div class="fp-head"><h4>${f.label}</h4>${f.note ? `<small class="muted">${f.note}</small>` : ''}<span class="spacer"></span>
         <button class="link" data-fall="${f.id}">All</button><span class="muted">·</span><button class="link" data-fnone="${f.id}">None</button></div>
       <div class="fp-opts">${f.options.map((o) => opt(f, o)).join('')}</div></section>`).join('')}
-    <section><div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005">★ Favourites only</button></div></section>`;
+    <section><div class="fp-head"><h4>Favourites</h4></div>
+      <div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005">★ Show only my favourites</button></div></section>`;
 }
 function setupFilters() {
   const dlg = $('#filters');
