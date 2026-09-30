@@ -7,7 +7,33 @@ export const STYLES = {
   night: 'https://tiles.openfreemap.org/styles/dark',  // same tiles, fonts and sprites as liberty
 };
 const CAPE_TOWN = { center: [18.45, -33.95], zoom: 11 };
-const ICON_ZOOM = 12.5;  // below: small dots; from here: discs with a category icon
+// Adaptive detail: every dot has its own zoom from which it shows as an icon (iz) and with its
+// name (lz), computed from the distance to its nearest visible neighbour: a dot expands as soon
+// as there is room around it on screen. From ICON_ZOOM / LABEL_ZOOM on, everything expands.
+const ICON_ZOOM = 12, LABEL_ZOOM = 14;   // hard cut-offs (all icons / all names)
+const ICON_MIN = 5, LABEL_MIN = 6;       // never expand when zoomed out further than this
+const ICON_GAP = 26, LABEL_GAP = 64;     // free screen space (px) a dot needs around it
+const zoomFor = (gapPx, metres, lat) =>
+  Math.log2((gapPx * 40075016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * Math.max(metres, 0.5)));
+
+/** Nearest-neighbour distance (m) for each point, by a latitude sweep. */
+function nearestDistances(pts) {
+  const order = pts.map((p, i) => i).sort((a, b) => pts[a].lat - pts[b].lat);
+  const best = new Array(pts.length).fill(Infinity);
+  const M_LAT = 110574;
+  for (let oi = 0; oi < order.length; oi++) {
+    const i = order[oi], a = pts[i], mLng = 111320 * Math.cos((a.lat * Math.PI) / 180);
+    for (const dir of [1, -1]) {
+      for (let oj = oi + dir; oj >= 0 && oj < order.length; oj += dir) {
+        const b = pts[order[oj]], dy = (b.lat - a.lat) * M_LAT;
+        if (Math.abs(dy) >= best[i]) break;
+        const d = Math.hypot((b.lng - a.lng) * mLng, dy);
+        if (d < best[i]) best[i] = d;
+      }
+    }
+  }
+  return best;
+}
 
 /** Category pin images (disc + icon + coloured ring), drawn once per theme at the screen's
     pixel density. The emoji is centred on its measured outline, not on the text line:
@@ -80,32 +106,42 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
     map.addLayer({ id: 'area-label', type: 'symbol', source: 'places', minzoom: 10.5, filter: ['!', isPoint],
       layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 13, 'text-max-width': 8 },
       paint: { 'text-color': ['get', 'color'], 'text-halo-color': halo, 'text-halo-width': 1.8 } });
-    map.addLayer({ id: 'selected', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
-      paint: { 'circle-radius': ['step', ['zoom'], 16, ICON_ZOOM, 21], 'circle-color': 'rgba(0,0,0,0)',
-               'circle-stroke-color': night ? '#ffb224' : '#212529', 'circle-stroke-width': 3 } });
-    // zoomed out: small dots
-    map.addLayer({ id: 'places-dot', type: 'circle', source: 'places', filter: isPoint, maxzoom: ICON_ZOOM,
+    const expanded = ['>=', ['zoom'], ['get', 'iz']], named = ['>=', ['zoom'], ['get', 'lz']];
+    const selColor = night ? '#ffb224' : '#212529';
+    // selection ring hugging whatever is shown: a small dot, or the icon disc
+    map.addLayer({ id: 'selected-dot', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, ['case', ['get', 'top'], 6.5, 5], 12, ['case', ['get', 'top'], 9.5, 7.5]],
+               'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': selColor, 'circle-stroke-width': 2 } });
+    map.addLayer({ id: 'selected-icon', type: 'circle', source: 'places', filter: ['==', ['get', 'id'], ''],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], ICON_MIN, 12.5, ICON_ZOOM, 13.5, 16, 18],
+               'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': selColor, 'circle-stroke-width': 2.5 } });
+    // not (yet) expanded: small dots
+    map.addLayer({ id: 'places-dot', type: 'circle', source: 'places', filter: ['all', isPoint, ['!', expanded]],
       paint: {
         'circle-color': ['get', 'color'],
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, ['case', ['get', 'top'], 4, 2.5], 12, ['case', ['get', 'top'], 7, 5]],
         'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', ['get', 'rec'], night ? '#e9eef3' : '#212529', halo],
         'circle-stroke-width': ['case', ['get', 'fav'], 2.5, ['get', 'rec'], 2, 1],
       } });
-    // zoomed in: ring for favourites / friend tips, then the icon disc on top
-    map.addLayer({ id: 'places-ring', type: 'circle', source: 'places', minzoom: ICON_ZOOM,
-      filter: ['all', isPoint, ['any', ['get', 'fav'], ['get', 'rec']]],
-      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], ICON_ZOOM, 14, 16, 19], 'circle-color': 'rgba(0,0,0,0)',
+    // expanded: ring for favourites / friend tips, then the icon disc on top
+    map.addLayer({ id: 'places-ring', type: 'circle', source: 'places',
+      filter: ['all', isPoint, expanded, ['any', ['get', 'fav'], ['get', 'rec']]],
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], ICON_MIN, 11.5, ICON_ZOOM, 12.5, 16, 17], 'circle-color': 'rgba(0,0,0,0)',
                'circle-stroke-color': ['case', ['get', 'fav'], '#ffd43b', night ? '#e9eef3' : '#212529'], 'circle-stroke-width': 3 } });
-    map.addLayer({ id: 'places-icon', type: 'symbol', source: 'places', minzoom: ICON_ZOOM, filter: isPoint,
-      layout: { 'icon-image': ['concat', 'pin-', ['get', 'cat']], 'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_ZOOM, 0.8, 16, 1.1],
-                'icon-allow-overlap': true, 'icon-ignore-placement': true,
-                'symbol-sort-key': ['case', ['get', 'top'], 0, 1] } });
-    map.addLayer({ id: 'places-label', type: 'symbol', source: 'places', minzoom: 14, filter: isPoint,
+    // names: where there's room (lz), still de-cluttered by MapLibre's label collision; top sights win
+    map.addLayer({ id: 'places-label', type: 'symbol', source: 'places', filter: ['all', isPoint, named],
       layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
-                'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true },
+                // below the pin if there's room, otherwise beside or above it
+                'text-variable-anchor': ['top', 'right', 'left', 'bottom'], 'text-radial-offset': 1.75, 'text-justify': 'auto',
+                'text-max-width': 9, 'text-optional': true, 'text-padding': 1,
+                'symbol-sort-key': ['case', ['get', 'top'], 0, ['get', 'fav'], 1, 2] },
       paint: { 'text-color': night ? '#e9eef3' : '#212529', 'text-halo-color': halo, 'text-halo-width': 1.5 } });
+    map.addLayer({ id: 'places-icon', type: 'symbol', source: 'places', filter: ['all', isPoint, expanded],
+      layout: { 'icon-image': ['concat', 'pin-', ['get', 'cat']], 'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_MIN, 0.75, ICON_ZOOM, 0.8, 16, 1.1],
+                'icon-allow-overlap': true, 'icon-ignore-placement': false, 'icon-padding': 0,  // always shown; names avoid them
+                'symbol-sort-key': ['case', ['get', 'top'], 0, 1] } });
     if (!shapesOn) ['shape-fill', 'shape-outline', 'route-line', 'area-label'].forEach((l) => map.setLayoutProperty(l, 'visibility', 'none'));
-    map.setFilter('selected', ['==', ['get', 'id'], selectedId || '']);
+    setSelectionFilter();
     render();
   }
   let shapesOn = true;
@@ -148,7 +184,22 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
   map.on('touchmove', (e) => { if (start && Math.hypot(e.point.x - start.x, e.point.y - start.y) > 8) cancel(); });
   map.on('movestart', cancel);
 
-  let selectedId = null, lastPlaces = [], lastFavs = new Set();
+  let selectedId = null, lastPlaces = [], lastFavs = new Set(), detail = new Map();
+  function setSelectionFilter() {
+    if (!map.getLayer('selected-dot')) return;
+    const isSel = ['==', ['get', 'id'], selectedId || ''], expanded = ['>=', ['zoom'], ['get', 'iz']];
+    map.setFilter('selected-dot', ['all', isSel, ['==', ['get', 'kind'], 'point'], ['!', expanded]]);
+    map.setFilter('selected-icon', ['all', isSel, ['==', ['get', 'kind'], 'point'], expanded]);
+  }
+  function computeDetail() {  // per visible point: zoom to show the icon (iz) and the name (lz)
+    const pts = lastPlaces.filter((p) => (p.kind || 'point') === 'point');
+    const near = nearestDistances(pts);
+    detail = new Map(pts.map((p, i) => {
+      const iz = Math.min(ICON_ZOOM, Math.max(ICON_MIN, zoomFor(ICON_GAP, near[i], p.lat)));
+      const lz = Math.min(LABEL_ZOOM, Math.max(LABEL_MIN, iz, zoomFor(LABEL_GAP, near[i], p.lat)));
+      return [p.id, { iz: +iz.toFixed(2), lz: +lz.toFixed(2) }];
+    }));
+  }
   function bboxSize(g) {
     const flat = g.coordinates.flat(3);
     let x0 = 180, x1 = -180, y0 = 90, y1 = -90;
@@ -164,7 +215,8 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
       features: lastPlaces.map((p) => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         properties: { id: p.id, name: p.name, kind: p.kind || 'point', top: !!p.top, fav: lastFavs.has(p.id),
-          rec: !!(p.recs?.length), color: color(p), cat: CATEGORIES[p.category] ? p.category : 'info' },
+          rec: !!p.recs?.some((r) => r.type !== 'web'), color: color(p), cat: CATEGORIES[p.category] ? p.category : 'info',
+          iz: detail.get(p.id)?.iz ?? ICON_ZOOM, lz: detail.get(p.id)?.lz ?? LABEL_ZOOM },
       })),
     });
     shapes.setData({
@@ -179,10 +231,10 @@ export function createMap(el, { onPlaceClick, onLongPress, onView, onLocate, the
   return {
     map,
     ready,
-    setPlaces(places, favs) { lastPlaces = places; lastFavs = favs; ready.then(render); },
+    setPlaces(places, favs) { lastPlaces = places; lastFavs = favs; computeDetail(); ready.then(render); },
     select(id) {
       selectedId = id;
-      ready.then(() => { if (map.getLayer('selected')) map.setFilter('selected', ['==', ['get', 'id'], id || '']); render(); });
+      ready.then(() => { setSelectionFilter(); render(); });
     },
     showShapes(on) {
       shapesOn = on;

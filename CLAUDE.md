@@ -48,8 +48,18 @@ point within 150 km, so a park's gate dot gets the park outline.
     - A slim stack on the right above it (`#side`) has the compass, shown only when the
       map is rotated, and my location, blue while following. Both hide while the place
       panel is open.
-    - Pins are discs with a category emoji from zoom 12.5 and dots below that. Favourites
-      get a gold ring and friend tips a dark ring.
+    - **Adaptive pins** (`src/map.js`, 2026-09-30): each visible dot gets `iz` (the zoom
+      from which it shows as an icon disc) and `lz` (the zoom from which it shows its
+      name). Both come from the distance to its nearest visible neighbour: ICON_GAP 26 px
+      and LABEL_GAP 64 px of free screen space. All dots expand from zoom 12 and all names
+      show from zoom 14. Nothing expands below zoom 5 (icons) or 6 (names). The layers use
+      zoom filters, `['>=', ['zoom'], ['get','iz']]`, which are evaluated per tile zoom.
+      Names use variable anchors and avoid icons (`icon-ignore-placement: false`). The
+      selection ring is sized to the dot or the disc (two layers). Favourites get a gold
+      ring, and only friends' tips get a dark ring (not web tips). Tuning = the constants
+      at the top of map.js.
+    - The page runs under the iOS status bar (`black-translucent`) with a faint top scrim.
+      Before that, iOS 26 tinted the band above the frosted search bar grey.
     - The panel has a Directions / Save / Note row. Directions goes to coordinates, or by
       name when the position is only a guess.
   - **Night mode** (`src/theme.js`): Auto / Day / Night in the menu. Auto uses sunset and
