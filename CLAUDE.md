@@ -176,5 +176,11 @@ mentions.
   (`cache: 'no-cache'`) because GitHub Pages sends max-age=600.
 - Visual checks: Playwright WebKit with the iPhone 13 device profile, script in
   `$TMPDIR/pw` (see memory). Headless Chrome CLI screenshots come out with an empty map.
+- **Design exploration** (Phil wants to see proposals as images before anything is built):
+  `tools/design/mock.mjs` re-skins the running app per variant (injected CSS, a map-style
+  swap, pin restyling via `window.__lp.mapView.map`) and takes iPhone screenshots. The
+  results go on a private comparison page (artifact "Guide Map Looks",
+  https://claude.ai/artifact/AywtwCbNoYtz7RisD3SmHD). Round 1 (2026-09-30): A Refined,
+  B Brown sign, C Night drive, D Map first + bottom bar.
 - Local run: `python3 -m http.server 8000` in the repo root, then open
   http://localhost:8000.
