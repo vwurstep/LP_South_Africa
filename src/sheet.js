@@ -101,6 +101,20 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
   }
 
+  // hospitals (OpenStreetMap): the facts that matter in an emergency
+  function healthHtml(h) {
+    const tel = (n) => n.split(/[;,]/)[0].trim();
+    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    return `<dl class="facts">
+      ${row('Emergency', h.emergency === true ? '✅ Emergency department' : h.emergency === false ? 'No emergency department' : 'Not known — call ahead')}
+      ${h.phone ? row('Phone', `<a href="tel:${esc(tel(h.phone).replace(/\s/g, ''))}">${esc(tel(h.phone))}</a>`) : ''}
+      ${h.hours ? row('Hours', esc(h.hours)) : ''}
+      ${h.operator ? row('Run by', esc(h.operator)) : ''}
+      ${h.website ? row('Website', `<a href="${esc(h.website)}" target="_blank" rel="noopener">${esc(h.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`) : ''}
+    </dl>
+    <p class="muted small credit">Hospital data © OpenStreetMap contributors — check details before you go. In an emergency in South Africa call 10177 (ambulance) or 112 from a mobile.</p>`;
+  }
+
   function crumbs(s) {
     const chapter = s.chapter.startsWith('gen-') ? 'General' : guide.chapterById?.[s.chapter]?.title;
     return [chapter, s.area, s.parent !== s.title ? s.parent : null, s.title]
@@ -142,6 +156,7 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     $('.body').innerHTML = `
       ${recs}
       ${summary ? `<p class="summary">${esc(summary)}</p>` : ''}
+      ${p.health ? healthHtml(p.health) : ''}
       ${also.length ? `<p class="also">Also here: ${also.map((q) => `<a data-place="${q.id}">${esc(q.name)}</a>`).join(', ')}</p>` : ''}
       <div class="note-box"><textarea class="note" rows="2" placeholder="My note…">${esc(a.note ?? p.note ?? '')}</textarea></div>
       ${ms.length ? `<h3 class="mentions-head">In the guide · ${ms.length} mention${ms.length > 1 ? 's' : ''}</h3>

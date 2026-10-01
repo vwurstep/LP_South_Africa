@@ -287,6 +287,54 @@ for p in places:
     if p["id"] in fixes:
         p["summary"] = fixes[p["id"]]
 
+# hospitals from OpenStreetMap (tools/fetch_hospitals.py): category "health", source "osm".
+# Facts only (emergency department, phone, operator) — no guide text, so no mentions/summaries.
+hf = PRIV / "osm" / "hospitals.json"
+if hf.exists():
+    def is_hospital(t):
+        kinds = {t.get("amenity"), *(t.get("healthcare") or "").split(";")}
+        name = (t.get("name") or "").lower()
+        return "hospital" in kinds and not any(w in name for w in ("frail care", "old age", "pharmacy"))
+    hosp = []
+    for e in json.loads(hf.read_text())["elements"]:
+        t = e.get("tags", {})
+        lat, lng = (e.get("lat"), e.get("lon")) if "lat" in e else (e.get("center", {}).get("lat"), e.get("center", {}).get("lon"))
+        if lat is None or not is_hospital(t):
+            continue
+        hosp.append({"t": t, "lat": lat, "lng": lng, "osm": e["type"][0] + str(e["id"])})
+    # one entry per hospital: OSM often has both a point and a building outline; an unnamed one
+    # next to a named one is the same hospital
+    hosp.sort(key=lambda h: (not h["t"].get("name"), -len(h["t"])))
+    kept = []
+    for h in hosp:
+        same = next((k for k in kept if dist_km(h, k) < 0.4 and
+                     (not h["t"].get("name") or norm(h["t"].get("name", "")) == norm(k["t"].get("name", "")))), None)
+        if not same:
+            kept.append(h)
+    for h in kept:
+        t = h["t"]
+        op_type = {"government": "public", "public/government": "public"}.get(t.get("operator:type"), t.get("operator:type"))
+        spec = t.get("healthcare:speciality", "")
+        emergency = {"yes": True, "no": False}.get(t.get("emergency"))
+        sub = " ".join(x for x in [op_type if op_type in ("public", "private") else None,
+                                   "psychiatric" if "psychiatr" in spec else None, "hospital"] if x)
+        bits = [f"{sub[0].upper() + sub[1:]}" + (f" run by {t['operator']}" if t.get("operator") else "") + "."]
+        if emergency is True: bits.append("Has an emergency department.")
+        if emergency is False: bits.append("No emergency department.")
+        if t.get("beds"): bits.append(f"{t['beds']} beds.")
+        locality = t.get("addr:city") or t.get("addr:suburb") or t.get("is_in:city")
+        item = {"lat": h["lat"], "lng": h["lng"]}
+        places.append({
+            "id": "osm-" + h["osm"], "name": t.get("name") or "Hospital", "category": "health", "subcategory": sub,
+            "chapter": nearest_chapter(item), "locality": locality, "area": None, "top": False, "price": None,
+            "lat": round(h["lat"], 6), "lng": round(h["lng"], 6), "geo": {"source": "osm", "confidence": "high"},
+            "mentions": [], "kind": "point", "source": "osm", "recs": [], "summary": " ".join(bits),
+            "health": {k: v for k, v in {"emergency": emergency, "operator": t.get("operator"),
+                       "phone": t.get("phone") or t.get("contact:phone"), "website": t.get("website") or t.get("contact:website"),
+                       "hours": t.get("opening_hours"), "beds": t.get("beds")}.items() if v not in (None, "")},
+        })
+    print(f"{len(kept)} hospitals from OpenStreetMap ({len(hosp) - len(kept)} duplicates dropped)")
+
 # places sharing exact coordinates (usually approximate geocodes): fan them out ~20 m
 by_pos = {}
 for p in places:

@@ -23,6 +23,7 @@ export function sourcesOf(p) {
   if (p.source === 'lp') s.add('lp');
   for (const r of p.recs || []) s.add(r.type === 'web' ? 'web' : `friend:${r.by}`);
   if (p.source === 'web') s.add('web');
+  if (p.source === 'osm') s.add('osm');
   return [...s];
 }
 
@@ -48,6 +49,7 @@ export function buildFacets(places) {
       { id: 'lp', label: 'Lonely Planet', emoji: '📘', color: '#1971c2', n: srcs.lp || 0 },
       ...friends.map((f) => ({ id: f, label: f.slice(7), sub: 'friend', emoji: '💬', color: '#495057', n: srcs[f] })),
       ...(srcs.web ? [{ id: 'web', label: 'Road trips', sub: 'web research', emoji: '🌐', color: '#2b8a3e', n: srcs.web }] : []),
+      ...(srcs.osm ? [{ id: 'osm', label: 'OpenStreetMap', sub: 'hospitals', emoji: '🌍', color: '#495057', n: srcs.osm }] : []),
       { id: 'mine', label: 'My places', emoji: '❤️', color: CATEGORIES.mine.color, n: srcs.mine || 0 },
     ] },
   ];
@@ -56,9 +58,18 @@ export function buildFacets(places) {
 /** Saved state: { off: {facetId: [optionIds switched off]}, favOnly, routesOnly }.
     favOnly / routesOnly are the quick switches in the floating bar (Saved, Routes). Storing what is OFF
     means options that appear later (a new friend, a new category) start switched on. */
+// options that start switched OFF the first time they appear (everything else starts on)
+const DEFAULT_OFF = [['type', 'health']];
 export function loadState() {
-  try { return { off: {}, favOnly: false, routesOnly: false, ...JSON.parse(localStorage.getItem(KEY)) }; }
-  catch { return { off: {}, favOnly: false, routesOnly: false }; }
+  let st;
+  try { st = { off: {}, favOnly: false, routesOnly: false, ...JSON.parse(localStorage.getItem(KEY)) }; }
+  catch { st = { off: {}, favOnly: false, routesOnly: false }; }
+  st.defaults = st.defaults || [];
+  for (const [f, o] of DEFAULT_OFF) {
+    const key = `${f}:${o}`;
+    if (!st.defaults.includes(key)) { st.defaults.push(key); st.off[f] = [...new Set([...(st.off[f] || []), o])]; }
+  }
+  return st;
 }
 export function saveState(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
 

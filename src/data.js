@@ -11,6 +11,7 @@ export const CATEGORIES = {  // colour for pins/badges, emoji for pin icons and 
   sleep:     { label: 'Sleep',     color: '#1971c2', emoji: '🛏️' },
   shop:      { label: 'Shop',      color: '#e67700', emoji: '🛍️' },
   area:      { label: 'Areas',     color: '#0c8599', emoji: '🗺️' },
+  health:    { label: 'Hospitals', color: '#e03131', emoji: '🏥' },
   info:      { label: 'Info',      color: '#495057', emoji: 'ℹ️' },
   transport: { label: 'Transport', color: '#495057', emoji: '🚌' },
   mine:      { label: 'Mine',      color: '#f08c00', emoji: '❤️' },

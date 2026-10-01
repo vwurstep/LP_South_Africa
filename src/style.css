@@ -202,3 +202,10 @@ html.gap #filters { margin: auto 8px 8px; width: calc(100% - 16px); border-radiu
   #dock .add { margin-left: 2px; }
 }
 @media (max-width: 350px) { #dock .cnt { display: none; } #bottom-row { left: 8px; right: 8px; } }
+
+.facts { margin: 8px 16px 4px; display: grid; gap: 6px; }
+.facts div { display: grid; grid-template-columns: 92px 1fr; gap: 8px; font-size: 15px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.facts a { color: var(--link); }
+.credit { margin: 6px 16px; }

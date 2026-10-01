@@ -135,6 +135,16 @@ point within 150 km, so a park's gate dot gets the park outline.
   for the Cape Town → Johannesburg trip, including Swartberg, the Seven Passes Road,
   Baviaanskloof, Abel Erasmus… It left out Meiringspoort, closed after the May 2026 floods.
   The **Routes** chip filters to all lines.
+- **Hospitals** (2026-10-01): `python3 tools/fetch_hospitals.py` pulls them from
+  OpenStreetMap via Overpass (ZA, LS, SZ), caching the result in
+  `data/private/osm/hospitals.json`. The build turns them into places with
+  `category: "health"`, `source: "osm"` and `health: {emergency, phone, hours, operator,
+  website, beds}`. It generates a fact-only summary and gives them no guide mentions.
+  Duplicates (point + building outline, unnamed next to named, within 400 m) are dropped,
+  leaving about 920. The filter type "Hospitals" starts OFF (`DEFAULT_OFF` in
+  filters.js; applied once per device), because about 900 dots would crowd the map. The
+  panel shows emergency / phone (tel: link) / hours / operator, plus an OSM credit and
+  the SA emergency numbers. Re-run the fetch to refresh.
 - **Google**: each place gets a Google Maps link (its Google page when known, otherwise
   a name search). `tools/google_places.py` (key in `data/private/google_api_key.txt`)
   caches Places API matches in `data/private/google.json`. That gives rating, count,
