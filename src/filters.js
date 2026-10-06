@@ -48,7 +48,7 @@ export function buildFacets(places) {
     { id: 'source', label: 'Source', options: [
       { id: 'lp', label: 'Lonely Planet', emoji: '📘', color: '#1971c2', n: srcs.lp || 0 },
       ...friends.map((f) => ({ id: f, label: f.slice(7), sub: 'friend', emoji: '💬', color: '#495057', n: srcs[f] })),
-      ...(srcs.web ? [{ id: 'web', label: 'Road trips', sub: 'web research', emoji: '🌐', color: '#2b8a3e', n: srcs.web }] : []),
+      ...(srcs.web ? [{ id: 'web', label: 'Web research', sub: 'drives & parks', emoji: '🌐', color: '#2b8a3e', n: srcs.web }] : []),
       ...(srcs.osm ? [{ id: 'osm', label: 'OpenStreetMap', sub: 'hospitals', emoji: '🌍', color: '#495057', n: srcs.osm }] : []),
       { id: 'mine', label: 'My places', emoji: '❤️', color: CATEGORIES.mine.color, n: srcs.mine || 0 },
     ] },
@@ -62,8 +62,8 @@ export function buildFacets(places) {
 const DEFAULT_OFF = [['type', 'health']];
 export function loadState() {
   let st;
-  try { st = { off: {}, favOnly: false, routesOnly: false, ...JSON.parse(localStorage.getItem(KEY)) }; }
-  catch { st = { off: {}, favOnly: false, routesOnly: false }; }
+  try { st = { off: {}, favOnly: false, routesOnly: false, parkOnly: null, ...JSON.parse(localStorage.getItem(KEY)) }; }
+  catch { st = { off: {}, favOnly: false, routesOnly: false, parkOnly: null }; }
   st.defaults = st.defaults || [];
   for (const [f, o] of DEFAULT_OFF) {
     const key = `${f}:${o}`;
@@ -82,12 +82,14 @@ export function setOn(st, facet, opt, on) {
 export function setAll(st, facets, on, facetId = null) {
   for (const f of facets) if (!facetId || f.id === facetId) st.off[f.id] = on ? [] : f.options.map((o) => o.id);
 }
-export const activeCount = (st) => Object.values(st.off).reduce((n, a) => n + a.length, 0) + (st.favOnly ? 1 : 0) + (st.routesOnly ? 1 : 0);
+export const activeCount = (st) => Object.values(st.off).reduce((n, a) => n + a.length, 0) + (st.favOnly ? 1 : 0) + (st.routesOnly ? 1 : 0) + (st.parkOnly ? 1 : 0);
 
 /** Predicate for one place under the current state. */
 export function matcher(st, isFav) {
   return (p) => {
     if (st.favOnly && !isFav(p.id)) return false;
+    // quick switch: only parks (national, or anything with an entry fee), whatever the other facets
+    if (st.parkOnly) return st.parkOnly === 'national' ? p.park?.type === 'national' : !!p.park;
     if (!sourcesOf(p).some((s) => isOn(st, 'source', s))) return false;
     if (st.routesOnly) return kindsOf(p).includes('routes');  // quick switch: only the lines
     const sightOk = p.category !== 'sight' || !p.tags?.length || p.tags.some((t) => isOn(st, 'sight', t));

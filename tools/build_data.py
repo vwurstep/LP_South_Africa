@@ -153,9 +153,11 @@ for ch in CHAPTERS:
 # recommendations (agent-made): friends' messages (data/private/friends/*.json) and web
 # research such as scenic drives (data/private/web/*.json, items carry `sources`)
 rec_files = [(f, "friend") for f in sorted((PRIV / "friends").glob("*.json"))] + \
-            [(f, "web") for f in sorted((PRIV / "web").glob("*.json")) if f.name != "existing_routes.json"]
+            [(f, "web") for f in sorted((PRIV / "web").glob("*.json")) if not f.name.startswith("parks-")]
 for f, rtype in rec_files:
     rec = json.loads(f.read_text())
+    if not isinstance(rec, dict) or "items" not in rec:
+        continue  # helper lists (existing_routes.json, park_candidates.json)
     for item in rec["items"]:
         r = {"by": rec["by"], "date": rec.get("date"), "comment": item.get("comment", ""), "type": rtype}
         if item.get("sources"):
@@ -167,6 +169,23 @@ for f, rtype in rec_files:
         elif not target.get("shape") and not target.get("osm"):
             add_shape(target, item)
         target["recs"].append(r)
+
+# parks with an entrance fee (agent research): data/private/web/parks-*.json. Fee + practical
+# info go on the matching place as `park`; parks not on the map yet are added.
+park_notes = []
+for f in sorted((PRIV / "web").glob("parks-*.json")):
+    rec = json.loads(f.read_text())
+    park_notes += rec.get("notes", [])
+    for item in rec["items"]:
+        target = (find_place(item["lp_match"], item, 150) if item.get("lp_match") else None) or find_place(item["name"], item, 60)
+        if not target:
+            item = {**item, "category": item.get("category") or "sight"}
+            target = new_place(item, "web", nearest_chapter(item))
+        target["park"] = {k: item.get(k) for k in ("park", "operator", "fees", "comment", "sources", "confidence")}
+        target["park"]["type"] = target["park"].pop("park")
+        if item.get("name") and norm(item["name"]) != norm(target["name"]):
+            target["park"]["official"] = item["name"]
+park_notes.sort(key=lambda n: (0 if "Wild Card" in n["title"] else 1 if "Tariff" in n["title"] else 2))
 
 # extra mentions: exact-name text matches in sections not already linked. Venues only
 # within their own chapter + the general chapters (same names recur across the country);
@@ -372,6 +391,7 @@ sections = [s for s in sections if not s["chapter"].startswith("gen-") or s["id"
 
 guide = {
     "meta": {"title": "Lonely Planet South Africa, Lesotho & eSwatini", "built": datetime.date.today().isoformat(),
+             "notes": park_notes,
              "chapters": [{"id": c, "title": CHAPTER_META[c]["title"], "country": CHAPTER_META[c]["country"]} for c in CHAPTERS]},
     "sections": sections,
     "places": places,

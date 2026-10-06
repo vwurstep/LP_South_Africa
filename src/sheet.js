@@ -23,6 +23,7 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
       t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.focus({ preventScroll: true });
     }
     if (act === 'edit') onEditUser(current);
+    if (act === 'notes') document.dispatchEvent(new CustomEvent('lp:notes'));
     if (act === 'more') {
       const card = e.target.closest('.mention'), m = current.mentions[+card.dataset.i];
       const full = card.querySelector('.full-text');
@@ -74,6 +75,7 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
       <div class="title-row">
         <span class="badge" style="background:${cat.color}">${esc(cat.label)}</span>
         ${p.top ? '<span class="badge top">Top sight</span>' : ''}
+        ${p.park ? `<span class="badge park">${p.park.type === 'national' ? 'National park' : 'Entry fee'}</span>` : ''}
         ${p.price ? `<span class="price">${esc(p.price)}</span>` : ''}
         ${p.recs?.some((r) => r.type !== 'web') ? '<span class="badge friend">Friend tip</span>' : ''}
         ${p.recs?.some((r) => r.type === 'web') ? '<span class="badge web">Road trip</span>' : ''}
@@ -99,6 +101,28 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     const dest = !p.user && p.geo?.confidence === 'low' && (p.kind || 'point') === 'point'
       ? [p.name, p.locality, p.country].filter(Boolean).join(', ') : `${p.lat},${p.lng}`;
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+  }
+
+  // parks with an entrance fee (web research): fee for international visitors + practical info
+  function parkHtml(k) {
+    const f = k.fees || {}, cur = f.currency === 'ZAR' || !f.currency ? 'R' : f.currency + ' ';
+    const money = (v) => (v == null ? null : `${cur}${Number(v).toLocaleString()}`);
+    const price = f.adult != null
+      ? `<b>${money(f.adult)}</b> adult${f.child != null ? ` · <b>${money(f.child)}</b> child${f.child_note ? ` (${esc(f.child_note)})` : ''}` : ''}<br><span class="muted small">${esc(f.per || 'per person per day')}, international visitors</span>`
+      : '<span class="muted">Fee not found — check before you go</span>';
+    const row = (a, b) => `<div><dt>${a}</dt><dd>${b}</dd></div>`;
+    return `<section class="fee">
+      <h3 class="mentions-head">🎟️ Entrance fee${k.operator ? ` · ${esc(k.operator)}` : ''}</h3>
+      <dl class="facts">
+        ${row('Price', price)}
+        ${f.vehicle ? row('Vehicle', esc(f.vehicle)) : ''}
+        ${f.wildcard != null ? row('Wild Card', f.wildcard ? '✅ Accepted — <a data-act="notes">is it worth it?</a>' : 'Not accepted') : ''}
+        ${f.other ? row('Others', esc(f.other)) : ''}
+      </dl>
+      ${k.comment ? `<p class="fee-text">${esc(k.comment)}</p>` : ''}
+      <p class="muted small credit">${f.valid ? `Rates ${esc(f.valid)}` : 'Rates'}${f.checked ? `, checked ${esc(f.checked)}` : ''}.
+        ${(k.sources || []).map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(' · ')}</p>
+    </section>`;
   }
 
   // hospitals (OpenStreetMap): the facts that matter in an emergency
@@ -157,6 +181,7 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
       ${recs}
       ${summary ? `<p class="summary">${esc(summary)}</p>` : ''}
       ${p.health ? healthHtml(p.health) : ''}
+      ${p.park ? parkHtml(p.park) : ''}
       ${also.length ? `<p class="also">Also here: ${also.map((q) => `<a data-place="${q.id}">${esc(q.name)}</a>`).join(', ')}</p>` : ''}
       <div class="note-box"><textarea class="note" rows="2" placeholder="My note…">${esc(a.note ?? p.note ?? '')}</textarea></div>
       ${ms.length ? `<h3 class="mentions-head">In the guide · ${ms.length} mention${ms.length > 1 ? 's' : ''}</h3>

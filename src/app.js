@@ -172,9 +172,26 @@ function renderFilterPanel() {
       <div class="fp-head"><h4>${f.label}</h4>${f.note ? `<small class="muted">${f.note}</small>` : ''}<span class="spacer"></span>
         <button class="link" data-fall="${f.id}">All</button><span class="muted">·</span><button class="link" data-fnone="${f.id}">None</button></div>
       <div class="fp-opts">${f.options.map((o) => opt(f, o)).join('')}</div></section>`).join('')}
+    <section><div class="fp-head"><h4>Parks &amp; entry fees</h4></div>
+      <div class="fp-opts">
+        <button class="chip ${fstate.parkOnly === 'national' ? 'on' : ''}" data-park="national" style="--c:#2b8a3e" aria-pressed="${fstate.parkOnly === 'national'}"><span class="ce" aria-hidden="true">🏞️</span>Only national parks<small>${allPlaces().filter((p) => p.park?.type === 'national').length}</small></button>
+        <button class="chip ${fstate.parkOnly === 'paid' ? 'on' : ''}" data-park="paid" style="--c:#e67700" aria-pressed="${fstate.parkOnly === 'paid'}"><span class="ce" aria-hidden="true">🎟️</span>Only places with an entry fee<small>${allPlaces().filter((p) => p.park).length}</small></button>
+      </div>
+      ${guide.meta.notes?.length ? '<button class="link" data-notes="1">🎟️ Park fees &amp; Wild Card — is a pass worth it?</button>' : ''}</section>
     <section><div class="fp-head"><h4>Favourites</h4></div>
       <div class="fp-opts"><button class="chip ${fstate.favOnly ? 'on' : ''}" data-favonly="1" style="--c:#fab005" aria-pressed="${!!fstate.favOnly}"><span class="ce" aria-hidden="true">⭐</span>Show only my favourites</button></div></section>`;
 }
+// park passes (Wild Card) and other notes from the research, shown from the filter panel / fee blocks
+function showNotes() {
+  const d = $('#notes');
+  d.querySelector('.notes-body').innerHTML = (guide.meta.notes || []).map((n) => `<h3>${esc(n.title)}</h3>
+    ${String(n.text).split(/\n\n+/).map((t) => `<p>${esc(t)}</p>`).join('')}
+    ${(n.sources || []).length ? `<p class="muted small">${n.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(' · ')}</p>` : ''}`).join('');
+  d.showModal();
+  document.activeElement?.blur(); d.scrollTop = 0;  // open at the top, without a focused link
+}
+document.addEventListener('lp:notes', () => showNotes());
+
 function setupFilters() {
   const dlg = $('#filters');
   $('#btn-filter').onclick = () => { renderFilterPanel(); dlg.showModal(); dlg.querySelector('.fp-body').focus?.(); document.activeElement?.blur(); };
@@ -182,9 +199,11 @@ function setupFilters() {
     if (e.target === dlg || e.target.closest('[data-done]')) return dlg.close();  // tap outside or Done
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.fit) { dlg.close(); return mapView.fitPlaces(visible()); }  // zoom to what's shown
-    if (b.dataset.all || b.dataset.none) { F.setAll(fstate, facets, !!b.dataset.all); if (b.dataset.all) fstate.favOnly = fstate.routesOnly = false; }
+    if (b.dataset.all || b.dataset.none) { F.setAll(fstate, facets, !!b.dataset.all); if (b.dataset.all) { fstate.favOnly = fstate.routesOnly = false; fstate.parkOnly = null; } }
     else if (b.dataset.fall || b.dataset.fnone) F.setAll(fstate, facets, !!b.dataset.fall, b.dataset.fall || b.dataset.fnone);
     else if (b.dataset.favonly) fstate.favOnly = !fstate.favOnly;
+    else if (b.dataset.park) fstate.parkOnly = fstate.parkOnly === b.dataset.park ? null : b.dataset.park;
+    else if (b.dataset.notes) { dlg.close(); return showNotes(); }
     else if (b.dataset.f) F.setOn(fstate, b.dataset.f, b.dataset.o, !F.isOn(fstate, b.dataset.f, b.dataset.o));
     else return;
     F.saveState(fstate); refresh(); buildChips();

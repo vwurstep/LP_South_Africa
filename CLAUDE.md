@@ -145,6 +145,20 @@ point within 150 km, so a park's gate dot gets the park outline.
   filters.js; applied once per device), because about 900 dots would crowd the map. The
   panel shows emergency / phone (tel: link) / hours / operator, plus an OSM credit and
   the SA emergency numbers. Re-run the fetch to refresh.
+- **Entrance fees** (2026-10-06): agents (brief `tools/briefs/parks.md`) wrote
+  `data/private/web/parks-*.json`: 25 SANParks items, including the paid TMNP sections
+  Cape Point, Boulders, Silvermine and Oudekraal, plus 32 others (Ezemvelo, CapeNature,
+  iSimangaliso, Lesotho, eSwatini, Pilanesberg…). The build attaches `park: {type:
+  national|reserve, operator, fees: {adult, child, child_note, per, other, vehicle,
+  wildcard, valid, checked}, comment, sources, confidence}` to the matching place and
+  adds missing parks. `meta.notes` holds the Wild Card break-even, the tariff year, the
+  Baviaanskloof closure and the dated Ezemvelo tariffs. Fees are for international
+  visitors. SANParks rates are mostly the 2026/27 ones (from 1 Nov 2026). sanparks.org
+  blocks automated fetches; the official PDF is
+  https://www.sanparks.org/wp-content/uploads/2026/02/daily_conservation_fees_2026_27.pdf
+  (Phil can download it into the repo so it can be checked). Filter: "Parks & entry fees"
+  quick switches (`parkOnly`: national | paid), which override the other facets.
+  Baviaanskloof is closed after the 2026 floods, a warning also on the road-trip item.
 - **Google**: each place gets a Google Maps link (its Google page when known, otherwise
   a name search). `tools/google_places.py` (key in `data/private/google_api_key.txt`)
   caches Places API matches in `data/private/google.json`. That gives rating, count,
