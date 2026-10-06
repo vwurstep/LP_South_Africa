@@ -173,9 +173,16 @@ for f, rtype in rec_files:
 # parks with an entrance fee (agent research): data/private/web/parks-*.json. Fee + practical
 # info go on the matching place as `park`; parks not on the map yet are added.
 park_notes = []
+# official SANParks adult rates for foreigners (both tariff years, from the PDFs Phil supplied)
+_of = PRIV / "web" / "sanparks_fees_official.json"
+official = json.loads(_of.read_text()) if _of.exists() else {"adult": {}, "periods": [], "pdfs": []}
+_lf = PRIV / "web" / "park_links.json"
+park_links = json.loads(_lf.read_text()) if _lf.exists() else {}
+# operators in the International Wild Card "All Parks Cluster" (wildcard.co.za/all-parks)
+WILDCARD_OPS = ("SANParks", "CapeNature", "Ezemvelo", "Msinsi", "Big Game Parks")
 for f in sorted((PRIV / "web").glob("parks-*.json")):
     rec = json.loads(f.read_text())
-    park_notes += rec.get("notes", [])
+    park_notes += [n for n in rec.get("notes", []) if not n["title"].startswith("Tariff year")]
     for item in rec["items"]:
         target = (find_place(item["lp_match"], item, 150) if item.get("lp_match") else None) or find_place(item["name"], item, 60)
         if not target:
@@ -183,9 +190,41 @@ for f in sorted((PRIV / "web").glob("parks-*.json")):
             target = new_place(item, "web", nearest_chapter(item))
         target["park"] = {k: item.get(k) for k in ("park", "operator", "fees", "comment", "sources", "confidence")}
         target["park"]["type"] = target["park"].pop("park")
+        fees = item.get("fees") or {}
+        row = official["adult"].get(item["name"])
+        if row:   # official PDF rates win over the researched ones
+            periods = [{"valid": v, "adult": a} for v, a in zip(official["periods"], row[:2])]
+            fee_note = row[2] if len(row) > 2 else None
+            fee_source = [{"title": f"SANParks conservation fees {v[6:10]}/{v[-2:]} (PDF)", "url": u}
+                          for v, u in zip(official["periods"], official["pdfs"])]
+        else:
+            periods = [{"valid": fees.get("valid"), "adult": fees.get("adult")}] if fees.get("adult") is not None else []
+            fee_note, fee_source = None, []
+        op = item.get("operator") or ""
+        target["park"]["fee"] = {"periods": periods, "note": fee_note, "vehicle": fees.get("vehicle"),
+                                 "checked": fees.get("checked"), "official": bool(row)}
+        target["park"]["wildcard"] = any(o.lower() in op.lower() for o in WILDCARD_OPS)
+        target["park"]["sources"] = fee_source + [x for x in (item.get("sources") or []) if x["url"] not in {y["url"] for y in fee_source}][:2]
+        if park_links.get(item["name"]):
+            target["park"]["website"] = park_links[item["name"]]
+        target["park"].pop("fees", None)
         if item.get("name") and norm(item["name"]) != norm(target["name"]):
             target["park"]["official"] = item["name"]
-park_notes.sort(key=lambda n: (0 if "Wild Card" in n["title"] else 1 if "Tariff" in n["title"] else 2))
+park_notes.insert(0, {"title": "What the Wild Card covers",
+    "text": "International visitors can only buy the International “All Parks Cluster” Wild Card. It covers the daily "
+            "entry (conservation) fees for one year at the parks of SANParks (all national parks), CapeNature, Ezemvelo KZN "
+            "Wildlife, Msinsi and Big Game Parks in eSwatini (Hlane, Mlilwane, Mkhaya).\n\nNot covered: iSimangaliso, "
+            "Kirstenbosch, Pilanesberg and Madikwe (North West Parks), the Panorama Route (MTPA), Lesotho's parks, Malolotja, "
+            "Mlawula and Mbuluzi in eSwatini, and private reserves such as Sabi Sand. Activities, guided drives, camping and "
+            "the Table Mountain Cableway always cost extra.\n\nEach park's panel says whether it is covered.",
+    "sources": [{"title": "Wild Card – All Parks", "url": "https://www.wildcard.co.za/all-parks/"},
+                {"title": "Wild Card – FAQ", "url": "https://www.wildcard.co.za/faq/"}]})
+if official["periods"]:
+    park_notes.insert(1, {"title": "Prices shown",
+        "text": "Prices are the daily entry fee for one foreign adult (12+). SANParks raises them every 1 November, so the "
+                "national parks show two prices: " + official["periods"][0] + " and " + official["periods"][1] + ", from the "
+                "official SANParks lists. Other parks show the latest rate found online; check before you go.",
+        "sources": [{"title": f"SANParks {v[6:10]}/{v[-2:]} (PDF)", "url": u} for v, u in zip(official["periods"], official["pdfs"])]})
 
 # extra mentions: exact-name text matches in sections not already linked. Venues only
 # within their own chapter + the general chapters (same names recur across the country);

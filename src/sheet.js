@@ -103,25 +103,36 @@ export function createSheet(el, { guide, onRef, onOpenPlace, onEditUser, onClose
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
   }
 
-  // parks with an entrance fee (web research): fee for international visitors + practical info
+  // parks with an entrance fee: daily fee for one foreign adult (both SANParks tariff years),
+  // Wild Card coverage, park website
   function parkHtml(k) {
-    const f = k.fees || {}, cur = f.currency === 'ZAR' || !f.currency ? 'R' : f.currency + ' ';
-    const money = (v) => (v == null ? null : `${cur}${Number(v).toLocaleString()}`);
-    const price = f.adult != null
-      ? `<b>${money(f.adult)}</b> adult${f.child != null ? ` · <b>${money(f.child)}</b> child${f.child_note ? ` (${esc(f.child_note)})` : ''}` : ''}<br><span class="muted small">${esc(f.per || 'per person per day')}, international visitors</span>`
-      : '<span class="muted">Fee not found — check before you go</span>';
+    const f = k.fee || {}, money = (v) => `R${Number(v).toLocaleString()}`;
+    const MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+    const start = (v) => { const m = /^(\d{1,2}) (\w{3}) (\d{4})/.exec(v || ''); return m ? new Date(+m[3], MONTHS[m[2]], +m[1]) : null; };
+    const label = (v) => {   // "1 Nov 2025 – 31 Oct 2026" → "Until 31 Oct 2026" / "From 1 Nov 2026"
+      const m = /^(\d{1,2} \w{3} \d{4}) – (\d{1,2} \w{3} \d{4})$/.exec(v || '');
+      if (!m) return v ? `<span class="muted small">${esc(v)}</span>` : '';
+      return start(v) <= new Date() ? `until ${m[2]}` : `from ${m[1]}`;
+    };
+    const now = new Date();
+    const end = (v) => { const m = /– (\d{1,2}) (\w{3}) (\d{4})$/.exec(v || ''); return m ? new Date(+m[3], MONTHS[m[2]], +m[1], 23, 59) : null; };
+    const periods = (f.periods || []).filter((x) => !end(x.valid) || end(x.valid) >= now);  // drop tariff years that are over
+    const current = periods.filter((x) => !start(x.valid) || start(x.valid) <= now).pop();
+    const prices = periods.length
+      ? periods.map((x) => `<div class="price-row${x === current ? ' now' : ''}"><b>${money(x.adult)}</b> ${label(x.valid)}</div>`).join('')
+      : '<span class="muted">No fee found — check before you go</span>';
     const row = (a, b) => `<div><dt>${a}</dt><dd>${b}</dd></div>`;
     return `<section class="fee">
-      <h3 class="mentions-head">🎟️ Entrance fee${k.operator ? ` · ${esc(k.operator)}` : ''}</h3>
+      <h3 class="mentions-head">🎟️ Entrance fee${k.operator ? ` · ${esc(k.operator.replace(/\s*\(.*\)$/, ''))}` : ''}</h3>
       <dl class="facts">
-        ${row('Price', price)}
+        ${row('Adult', `${prices}<span class="muted small">per day, foreign visitors${f.note ? ` · ${esc(f.note)}` : ''}</span>`)}
         ${f.vehicle ? row('Vehicle', esc(f.vehicle)) : ''}
-        ${f.wildcard != null ? row('Wild Card', f.wildcard ? '✅ Accepted — <a data-act="notes">is it worth it?</a>' : 'Not accepted') : ''}
-        ${f.other ? row('Others', esc(f.other)) : ''}
+        ${row('Wild Card', k.wildcard ? '✅ Covered by the Wild Card' : '❌ Not covered — pay at the gate')}
+        ${k.website ? row('Website', `<a href="${esc(k.website.url)}" target="_blank" rel="noopener">${esc(k.website.title || 'Park website')} ↗</a>`) : ''}
       </dl>
       ${k.comment ? `<p class="fee-text">${esc(k.comment)}</p>` : ''}
-      <p class="muted small credit">${f.valid ? `Rates ${esc(f.valid)}` : 'Rates'}${f.checked ? `, checked ${esc(f.checked)}` : ''}.
-        ${(k.sources || []).map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(' · ')}</p>
+      <p class="muted small credit"><a data-act="notes">About the Wild Card &amp; these prices</a>${f.checked ? ` · checked ${esc(f.checked)}` : ''}
+        ${(k.sources || []).length ? ' · ' + k.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(' · ') : ''}</p>
     </section>`;
   }
 

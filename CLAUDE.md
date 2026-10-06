@@ -159,6 +159,17 @@ point within 150 km, so a park's gate dot gets the park outline.
   (Phil can download it into the repo so it can be checked). Filter: "Parks & entry fees"
   quick switches (`parkOnly`: national | paid), which override the other facets.
   Baviaanskloof is closed after the 2026 floods, a warning also on the road-trip item.
+  - Update 2026-10-06: Phil travels **Oct–Dec 2026** and wants only the **foreign adult**
+    price. SANParks rates for both tariff years come from the official PDFs
+    (`data/private/web/sources/`, transcribed into `sanparks_fees_official.json`), which
+    overrode 5 wrong agent values (e.g. Cape Point is R515/R592, not R282). The panel shows
+    both periods, marks the current one "now" and hides periods that are over.
+    `park.wildcard` is true when the operator belongs to the International Wild Card "All
+    Parks Cluster" (SANParks, CapeNature, Ezemvelo, Msinsi, Big Game Parks; Phil is
+    considering buying one). `park.website` holds the official park page from
+    `park_links.json` (56/57 official). Place structure: `park: {type, operator, fee:
+    {periods: [{valid, adult}], note, vehicle, checked, official}, wildcard, website,
+    comment, sources}`.
 - **Google**: each place gets a Google Maps link (its Google page when known, otherwise
   a name search). `tools/google_places.py` (key in `data/private/google_api_key.txt`)
   caches Places API matches in `data/private/google.json`. That gives rating, count,

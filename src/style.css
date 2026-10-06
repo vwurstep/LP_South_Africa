@@ -204,7 +204,7 @@ html.gap #filters { margin: auto 8px 8px; width: calc(100% - 16px); border-radiu
 @media (max-width: 350px) { #dock .cnt { display: none; } #bottom-row { left: 8px; right: 8px; } }
 
 .facts { margin: 8px 16px 4px; display: grid; gap: 6px; }
-.facts div { display: grid; grid-template-columns: 92px 1fr; gap: 8px; font-size: 15px; }
+.facts > div { display: grid; grid-template-columns: 92px 1fr; gap: 8px; font-size: 15px; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
 .facts a { color: var(--link); }
@@ -212,9 +212,15 @@ html.gap #filters { margin: auto 8px 8px; width: calc(100% - 16px); border-radiu
 
 .badge.park { background: #2b8a3e; }
 .fee .fee-text { margin: 6px 16px; font-size: 15px; line-height: 1.5; }
-.fee .facts div { grid-template-columns: 92px 1fr; }
+.fee .facts > div { grid-template-columns: 92px 1fr; }
 #notes { max-height: 85dvh; overflow-y: auto; }
 #notes h3 { margin: 4px 0 6px; }
 #notes p { margin: 0 0 10px; line-height: 1.5; }
 #notes a, .fee a { color: var(--link); }
 #filters button.link { margin-top: 8px; }
+
+.price-row { line-height: 1.5; color: var(--muted); }
+.price-row b { color: var(--fg); }
+.price-row.now { color: var(--fg); font-weight: 600; }
+.price-row.now b { font-size: 17px; }
+.price-row.now::after { content: ' · now'; color: var(--muted); font-weight: 400; font-size: 13px; }
